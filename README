@@ -1,18 +1,12 @@
-Linux kernel
-============
+# Linux Source Code Commiting 
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+In this repo, orginal Linux README file was replaced by this file, all the repo wanna do is to add some commit message into code, to make Linux source code more easily to read and understand.
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+All commit message are Chinese-Version.
 
-    https://www.kernel.org/doc/html/latest/
+# Linux源码注释
+本repo移除了Linux源码中自带的README文件,取而代之的是当前描述,该repo的目的是为Linux源码添加注释,使Linux源码变得更加易读和易懂.
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
+注释均为中文.
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+ 
