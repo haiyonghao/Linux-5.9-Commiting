@@ -7640,7 +7640,7 @@ static void __pi_post_block(struct kvm_vcpu *vcpu)
 	} while (cmpxchg64(&pi_desc->control, old.control,
 			   new.control) != old.control);
 
-	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) {
+	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) { // 只要pi_pre_block()正常运行,vcpu->pre_pcpu肯定会是一个非-1值,下面的code一定会执行
 		spin_lock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
 		list_del(&vcpu->blocked_vcpu_list);
 		spin_unlock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
@@ -7664,9 +7664,10 @@ static void __pi_post_block(struct kvm_vcpu *vcpu)
  *  - 将该vcpu放入 wakeup list 中，以便于当中断发生时，可以快速找到对应的vcpu并wake 它
  *  - 对pi descriptor  做如下修改：
  * 				-将notification dest 赋值为该vcpu所处的上一个pcpu
- * 				- 将notification vector 赋值为预定义好的POSTED_INTR_WAKEUP_VECTOR
+ * 				- 将notification vector 赋值为预定义好的POSTED_INTR_WAKEUP_VECTOR(因为)
  *  - 如果outstanding notification在该函数中被设置为1，就意味着至少产生了一个posted Interrupt
- *     给该vcpu，此时不能block 该 posted Interrupt，应该return 1，其它情况下，return 0.
+ *     给该vcpu，此时不能block 该 posted Interrupt，应该将该vcpu->pid.NV设置为POSTED_INTR_VECTOR,
+ * 	   并且return 1;其它情况下，return 0.
  */
 static int pi_pre_block(struct kvm_vcpu *vcpu)
 {
