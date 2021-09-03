@@ -3685,7 +3685,13 @@ out:
 	mutex_unlock(&kvm->slots_lock);
 	return r;
 }
-
+/* 
+ * kvm使用一个bitmap-vmx_vpid_bitmap来存储每个vcpu的vpid.
+ * 分配vpid:
+ * 	1. 找到bitmap中(由低bit到高bit)第一个未被使用的bit
+ *  2. 将该bit在bitmap中的序号当做vpid值
+ *  3. 将该bit置为1,以标志该bit对应的vpid已经被使用.
+ */
 int allocate_vpid(void)
 {
 	int vpid;
