@@ -3717,7 +3717,7 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 					wbinvd_ipi, NULL, 1);
 	}
 
-	kvm_x86_ops.vcpu_load(vcpu, cpu);
+	kvm_x86_ops.vcpu_load(vcpu, cpu); // Load VMCS, 清pir.sn,设置pir.NDST
 
 	/* Save host pkru register if supported */
 	vcpu->arch.host_pkru = read_pkru();
@@ -8747,7 +8747,7 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 		if (kvm_vcpu_running(vcpu)) {
 			r = vcpu_enter_guest(vcpu);
 		} else {
-			r = vcpu_block(kvm, vcpu);
+			r = vcpu_block(kvm, vcpu); // 返回一个非0整数表示需要继续运行vcpu.
 		}
 
 		if (r <= 0)

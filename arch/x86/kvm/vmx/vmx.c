@@ -1268,6 +1268,21 @@ static void vmx_write_guest_kernel_gs_base(struct vcpu_vmx *vmx, u64 data)
 }
 #endif
 
+/*
+ * 情况一: 需要load到物理CPU的vcpu就处于当前物理CPU上,且该vcpu对应的pi.sn为0,
+ *        表示无需进行load即可正常接收posted interrupts.
+ * 情况二: 需要load到物理CPU的vcpu就处于当前物理CPU上,或该vcpu对应的pi.nv为
+ * 		  WAKEUP_VECTOR, 这意味着该vcpu目前短暂处于沉睡状态,之后马上会被pi_post_block
+ * 		  将pi.nv又设置为PI_INTR_VECTOR.因此只需清掉pi.sn.放posted interrupts
+ *        进来.
+ * 情况三: 需要load到物理CPU的vcpu对应的pi.nv为PI_INTR_VECTOR,此时只需要修改pi.NDST
+ * 		  为当前物理CPU即可.
+ * 
+ * 最后检查当前vcpu对应的pi.pir是否为空,如果不为空表示有posted interrupts来到,需要设置
+ * pi.on以提示vcpu去处理中断.
+ * 
+ * ! 核心做两件事: 1. 清SN 2. 设置NDST.
+ */
 static void vmx_vcpu_pi_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct pi_desc *pi_desc = vcpu_to_pi_desc(vcpu);
@@ -1281,7 +1296,10 @@ static void vmx_vcpu_pi_load(struct kvm_vcpu *vcpu, int cpu)
 	 * code easier, and CPU migration is not a fast path.
 	 */
 
-	/* 如果SN bit为0，且vcpu之前所在的cpu就是即将load的pcpu，就不用load了，因为当前CPU上有其pid 信息？*/
+	/* 
+	 * 如果SN bit为0，且vcpu之前所在的cpu就是即将load的pcpu，就不用load了,
+	 * 因为可以直接用当前物理CPU接收posted interrupts.
+	 */
 	if (!pi_test_sn(pi_desc) && vcpu->cpu == cpu)
 		return;
 
@@ -1293,9 +1311,10 @@ static void vmx_vcpu_pi_load(struct kvm_vcpu *vcpu, int cpu)
 	 * correctly.
 	 */
 
-	/* 如果nv中是wakeup vector，或者vcpu之前所在的cpu就是即将load的pcpu，
-	* 就无需设置NDST了, 只需清掉SN。
-	 * 因为NDST会在pi_post_block中被修改
+	/* 
+	 * 如果nv中是wakeup vector，或者vcpu之前所在的cpu就是即将load的pcpu，
+	 * 就无需设置NDST了, 只需清掉SN(清除supress notification bit, 以允许posted interrupts
+	 * 被处理)。因为NDST会在pi_post_block中被修改.
 	 */
 	if (pi_desc->nv == POSTED_INTR_WAKEUP_VECTOR || vcpu->cpu == cpu) {
 		pi_clear_sn(pi_desc);
@@ -7613,10 +7632,11 @@ static void vmx_enable_log_dirty_pt_masked(struct kvm *kvm,
 	kvm_mmu_clear_dirty_pt_masked(kvm, memslot, offset, mask);
 }
 
-/* 1. 如果当前vcpu的pid.nv中存储的不是wakeup_vector，就报warning
+/* 
+ * 1. 如果当前vcpu的pid.nv中存储的不是wakeup_vector，就报warning
  * 2.  修改pid.nv变为posted_intr_vector
-  * 3. 修改pid.ndst变为vcpu当前所处CPU的LAPIC的physical ID
-  * 4. 将当前vcpu的block_vcpu_list从blocked_vcpu_on_cpu这个per-cpu链表中删除*/
+ * 3. 修改pid.ndst变为vcpu当前所处CPU的LAPIC的physical ID
+ */
 static void __pi_post_block(struct kvm_vcpu *vcpu)
 {
 	struct pi_desc *pi_desc = vcpu_to_pi_desc(vcpu);
@@ -7640,7 +7660,7 @@ static void __pi_post_block(struct kvm_vcpu *vcpu)
 	} while (cmpxchg64(&pi_desc->control, old.control,
 			   new.control) != old.control);
 
-	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) { // 只要pi_pre_block()正常运行,vcpu->pre_pcpu肯定会是一个非-1值,下面的code一定会执行
+	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) { // 只要pi_pre_block()正常运行,vcpu->pre_pcpu肯定会是一个非-1值,下面的code一定不会执行
 		spin_lock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
 		list_del(&vcpu->blocked_vcpu_list);
 		spin_unlock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
@@ -7682,7 +7702,8 @@ static int pi_pre_block(struct kvm_vcpu *vcpu)
 
 	WARN_ON(irqs_disabled());
 	local_irq_disable();
-	if (!WARN_ON_ONCE(vcpu->pre_pcpu != -1)) {
+	if (!WARN_ON_ONCE(vcpu->pre_pcpu != -1)) { // 只有vcpu之前没有在任何物理CPU上运行过,
+											   // 才会将当前物理CPU信息记录到vcpu->pre_pcpu中
 		vcpu->pre_pcpu = vcpu->cpu;
 		spin_lock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
 		/* 将vcpu->blocked_vcpu_list添加到vcpu上一次运行的pcpu的blocked_vcpu_on_cpu链表中。*/
