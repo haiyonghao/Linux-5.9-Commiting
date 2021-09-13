@@ -8726,13 +8726,19 @@ static inline int vcpu_block(struct kvm *kvm, struct kvm_vcpu *vcpu)
 	return 1;
 }
 
+/* 
+ * 非Nested情况下:
+ * - 如果vcpu处于运行状态,且不处于halt状态,则返回True
+ * - 如果vcpu处于非运行状态, 或处于halt状态, 则返回False.
+ */
 static inline bool kvm_vcpu_running(struct kvm_vcpu *vcpu)
 {
 	if (is_guest_mode(vcpu))
 		kvm_x86_ops.nested_ops->check_events(vcpu);
 
 	return (vcpu->arch.mp_state == KVM_MP_STATE_RUNNABLE &&
-		!vcpu->arch.apf.halted);
+		!vcpu->arch.apf.halted); // 如果vcpu处于KVM_MP_STATE_RUNNABLE状态,
+							     // 即运行状态,那么就不会处于halted状态呀?
 }
 
 static int vcpu_run(struct kvm_vcpu *vcpu)
@@ -10371,6 +10377,9 @@ static inline bool kvm_vcpu_has_events(struct kvm_vcpu *vcpu)
 	return false;
 }
 
+/* 
+ * 如果vcpu当前处于运行状态,或当前有需要vcpu处理的时间,例如中断,异常等.
+ */
 int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
 {
 	return kvm_vcpu_running(vcpu) || kvm_vcpu_has_events(vcpu);

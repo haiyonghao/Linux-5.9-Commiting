@@ -6328,6 +6328,13 @@ void vmx_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
 	vmx_update_msr_bitmap(vcpu);
 }
 
+/*
+ * 通过建立GPA(0xFEE0_0000)到HPA(page_to_phys(page))-APIC-ACCESS-PAGE之间的映射,
+ * 当Guest通过 apic->reg 访问APIC寄存器时, 首先会落到对GPA(0xFEE0_0000)
+ * 上,而这个GPA与HPA有映射关系,导致此次访问落到HPA(APIC-ACCESS-PAGE)上,进而由硬件
+ * 决定,是否要vmexit,如果vmexit,则调用handle_apic_access, 如果不vmexit,则会(1. 
+ * 为此次访问提供virtual-apic page上的值,或2. 进行相应的硬件虚拟化行为,如TPR虚拟化)
+ */
 static void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 {
 	struct page *page;
@@ -6341,11 +6348,12 @@ static void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	if (!(secondary_exec_controls_get(to_vmx(vcpu)) &
 	    SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES))
 		return;
-
+	// 建立GPA(0xFEE0_0000)到HVA(page)的映射.
 	page = gfn_to_page(vcpu->kvm, APIC_DEFAULT_PHYS_BASE >> PAGE_SHIFT);
 	if (is_error_page(page))
 		return;
-
+	
+	// 将HVA(page)对应的HPA的地址写入VMCS的APIC-access page addr中
 	vmcs_write64(APIC_ACCESS_ADDR, page_to_phys(page));
 	vmx_flush_tlb_current(vcpu);
 
@@ -7634,8 +7642,10 @@ static void vmx_enable_log_dirty_pt_masked(struct kvm *kvm,
 
 /* 
  * 1. 如果当前vcpu的pid.nv中存储的不是wakeup_vector，就报warning
- * 2.  修改pid.nv变为posted_intr_vector
+ * 2. 修改pid.nv变为posted_intr_vector
  * 3. 修改pid.ndst变为vcpu当前所处CPU的LAPIC的physical ID
+ * 4. 如果vcpu->pre_pcpu != -1, 就将该vcpu从对应pcpu的
+ * blocked_vcpu_on_cpu链表中删除
  */
 static void __pi_post_block(struct kvm_vcpu *vcpu)
 {
@@ -7660,7 +7670,7 @@ static void __pi_post_block(struct kvm_vcpu *vcpu)
 	} while (cmpxchg64(&pi_desc->control, old.control,
 			   new.control) != old.control);
 
-	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) { // 只要pi_pre_block()正常运行,vcpu->pre_pcpu肯定会是一个非-1值,下面的code一定不会执行
+	if (!WARN_ON_ONCE(vcpu->pre_pcpu == -1)) {
 		spin_lock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
 		list_del(&vcpu->blocked_vcpu_list);
 		spin_unlock(&per_cpu(blocked_vcpu_on_cpu_lock, vcpu->pre_pcpu));
