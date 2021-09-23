@@ -341,7 +341,7 @@ static int vfio_msi_set_vector_signal(struct vfio_pci_device *vdev,
 	 */
 	cmd = vfio_pci_memory_lock_and_enable(vdev);
 	if (msix) { // userspace可能会对MSI-X vector table进行reset，但是
-						// 不允许这样的reset发生，所以这里将之前cache的table内容写入vector table
+				// 不允许这样的reset发生，所以这里将之前cache的table内容写入vector table
 		struct msi_msg msg;
 
 		get_cached_msi_msg(irq, &msg);
@@ -350,7 +350,7 @@ static int vfio_msi_set_vector_signal(struct vfio_pci_device *vdev,
 
 	ret = request_irq(irq, vfio_msihandler, 0,
 			  vdev->ctx[vector].name, trigger); // 注册一个中断号为irq，handler为vfio_msihandler，参数为0，
-			  																	// 名为vfio-msi[vector](xxx)的中断，trigger(可以理解为设备)为eventfd.ctxt
+			  									// 名为vfio-msi[vector](xxx)的中断，trigger(可以理解为设备)为eventfd.ctxt
 	vfio_pci_memory_unlock_and_restore(vdev, cmd);
 	if (ret) {
 		kfree(vdev->ctx[vector].name);

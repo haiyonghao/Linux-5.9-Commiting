@@ -3829,13 +3829,22 @@ static u8 vmx_msr_bitmap_mode(struct kvm_vcpu *vcpu)
 	    (secondary_exec_controls_get(to_vmx(vcpu)) &
 	     SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE)) {
 		mode |= MSR_BITMAP_MODE_X2APIC;
-		if (enable_apicv && kvm_vcpu_apicv_active(vcpu))
-			mode |= MSR_BITMAP_MODE_X2APIC_APICV;
+		if (enable_apicv && kvm_vcpu_apicv_active(vcpu)) // 如果kvm使用apicv,并且CPU支持apicv.就将MSR_Bitmap的模式
+			mode |= MSR_BITMAP_MODE_X2APIC_APICV;        // 设置为x2APIC mode.
 	}
 
 	return mode;
 }
 
+/* 
+ * MSR_BITMAP_MODE_X2APIC_APICV = "virtualize x2APIC mode" + enable_apicv, 
+ * 此时,所有使用MSR方式访问APIC寄存器的指令,均会被虚拟化而不vmexit.除了Local APIC
+ * Timer的Current Count Register (offset:0x390) 会vmexit.
+ * 
+ * MSR_BITMAP_MODE_X2APIC = "virtualize x2APIC mode", 
+ * 此时,只有用MSR方式访问TPR,会被虚拟化而不vmexit,其它APIC寄存器的APIC访问均会vmexit.
+ * 
+ */
 static void vmx_update_msr_bitmap_x2apic(unsigned long *msr_bitmap,
 					 u8 mode)
 {
@@ -6363,7 +6372,9 @@ static void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	 */
 	put_page(page);
 }
-
+/* 
+ * 更新SVI为max_isr(vector)的值.
+ */
 static void vmx_hwapic_isr_update(struct kvm_vcpu *vcpu, int max_isr)
 {
 	u16 status;
@@ -6398,7 +6409,9 @@ static void vmx_set_rvi(int vector)
 		vmcs_write16(GUEST_INTR_STATUS, status);
 	}
 }
-/* 如果nested-guest正在运行，就不更新RVI，否则更新RVI*/
+/* 
+ * 如果nested-guest正在运行，就不更新RVI，否则更新RVI
+ */
 static void vmx_hwapic_irr_update(struct kvm_vcpu *vcpu, int max_irr)
 {
 	/*
@@ -6413,9 +6426,14 @@ static void vmx_hwapic_irr_update(struct kvm_vcpu *vcpu, int max_irr)
 		vmx_set_rvi(max_irr);
 }
 
-/* 返回非0正数，表示已将pir/IRR中最大的vector更新到RVI中
-  * 返回-1,表示RVI没有更新
-  */
+/* 
+ * Return: 返回非0正数，表示已将pir/IRR中最大的vector更新到RVI中
+ * 		   返回-1,表示RVI没有更新
+ * 
+ * 将PIR中最新的最高优先级bits设置到IRR中去.
+ * 如果ON为1, 说明有PI来了,需要将PIR中的最高set bit整合到IRR中去.并更新RVI.
+ * 如果ON为0, 说明PIR没有更新,只需要将IRR中优先级最高的vector更新到RVI中.
+ */
 static int vmx_sync_pir_to_irr(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -7696,7 +7714,7 @@ static void __pi_post_block(struct kvm_vcpu *vcpu)
  * 				-将notification dest 赋值为该vcpu所处的上一个pcpu
  * 				- 将notification vector 赋值为预定义好的POSTED_INTR_WAKEUP_VECTOR(因为)
  *  - 如果outstanding notification在该函数中被设置为1，就意味着至少产生了一个posted Interrupt
- *     给该vcpu，此时不能block 该 posted Interrupt，应该将该vcpu->pid.NV设置为POSTED_INTR_VECTOR,
+ *     给该vcpu，此时不能block 该 vcpu，应该将该vcpu->pid.NV设置为POSTED_INTR_VECTOR,
  * 	   并且return 1;其它情况下，return 0.
  */
 static int pi_pre_block(struct kvm_vcpu *vcpu)
@@ -7826,8 +7844,8 @@ static int vmx_update_pi_irte(struct kvm *kvm, unsigned int host_irq,
 	}
 
 	hlist_for_each_entry(e, &irq_rt->map[guest_irq], link) {  // 遍历kvm维护的routing table中，index为guest_irq的entry
-																														// 之所以一个irq会对应多个entry，是因为可能有IOAPIC和APIC两种
-																														//  中断控制器
+															  // 之所以一个irq会对应多个entry，是因为可能有IOAPIC和APIC两种
+															  //  中断控制器
 			continue;
 		/*
 		 * VT-d PI cannot support posting multicast/broadcast
@@ -7846,14 +7864,14 @@ static int vmx_update_pi_irte(struct kvm *kvm, unsigned int host_irq,
 		 */
 
 		kvm_set_msi_irq(kvm, e, &irq); // 设置lapic的对于该irq的路由设置，即dest_id\dest_mode\delivery mode等。
-																		 // 其实是将e，也就是msi-irq_routing_entry的内容解析到irq中
+									   // 其实是将e，也就是msi-irq_routing_entry的内容解析到irq中
 		if (!kvm_intr_is_single_vcpu(kvm, &irq, &vcpu) ||
 		    !kvm_irq_is_postable(&irq)) {
 			/*
 			 * Make sure the IRTE is in remapped mode if
 			 * we don't handle it in posted mode.
 			 * 如果不用posted mode处理某中断，那么就以remmap mode处理
-			 *  此时可以设置该中断的CPU亲和性
+			 * 此时可以设置该中断的CPU亲和性
 			 */
 			ret = irq_set_vcpu_affinity(host_irq, NULL); 
 			if (ret < 0) {
@@ -7874,7 +7892,7 @@ static int vmx_update_pi_irte(struct kvm *kvm, unsigned int host_irq,
 
 		if (set)
 			ret = irq_set_vcpu_affinity(host_irq, &vcpu_info); // 根据vcpu_info设置host_irq对应的中断重定向表entry格式
-																												// (intel_ir_set_vcpu_affinity)
+															   // (intel_ir_set_vcpu_affinity)
 		else
 			ret = irq_set_vcpu_affinity(host_irq, NULL);
 

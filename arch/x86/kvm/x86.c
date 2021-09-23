@@ -8685,23 +8685,31 @@ cancel_injection:
 out:
 	return r;
 }
-
+/* 
+ * 尝试block, 如果能够block,则在该函数中停留(或放弃CPU),等待重新回到该vcpu的线程.
+ * 如果不能block,则立即从该函数运行返回到vcpu_enter_guest循环中去,处理相应事件. 
+ */
 static inline int vcpu_block(struct kvm *kvm, struct kvm_vcpu *vcpu)
 {
 	/* 
-	  * 如果: vcpu不在运行, vcpu不需要处理事件，pi_pre_block返回0(表示vcpu没有要处理的PI，可以正常block)
-	  * 那么：
-	  * 1. 调用kvm_vcpu_block对vcpu进行block,
-	  * 2. 调用pi_post_block修改pid.nv,ndst,并将vcpu->vcpu_blocked_list从blocked_vcpu_on_cpu 链表中删除
-	  !3. 对KVM_REQ_UNHALT事件的处理还需要以后再看
-	  */
+	 * 如果: vcpu不在运行, vcpu不需要处理事件，pi_pre_block返回0(表示vcpu没有要处理的PI，可以正常block)
+	 * 那么：
+	 * 1. 调用kvm_vcpu_block对vcpu进行block,
+	 * 2. 调用pi_post_block修改pid.nv,ndst,并将vcpu->vcpu_blocked_list从blocked_vcpu_on_cpu 链表中删除
+     !3. 对KVM_REQ_UNHALT事件的处理还需要以后再看
+	 */
 	if (!kvm_arch_vcpu_runnable(vcpu) &&
 	    (!kvm_x86_ops.pre_block || kvm_x86_ops.pre_block(vcpu) == 0)) { // vmx_pre_block
 		srcu_read_unlock(&kvm->srcu, vcpu->srcu_idx);
 		kvm_vcpu_block(vcpu);
+		// 到这里,vcpu已经block完了.
 		vcpu->srcu_idx = srcu_read_lock(&kvm->srcu);
 
-		if (kvm_x86_ops.post_block)
+		if (kvm_x86_ops.post_block) // *到这里vcpu的block已经完成了,需要将:
+									// * 1. 将lapic的timer切换到kvm维护的hv_timer
+									// * 2. 将当前vcpu从所属的pcpu(不一定是当前物理CPU)的链表中删除.
+									// * 3. 将当前vcpu对应的notification Destination设置为当前pcpu的id,
+								    // *    将notification vector恢复为POSTED_INTR_VECTOR.(以后住这儿,记得我给写信(post))
 			kvm_x86_ops.post_block(vcpu);
 
 		if (!kvm_check_request(KVM_REQ_UNHALT, vcpu))
@@ -10378,7 +10386,7 @@ static inline bool kvm_vcpu_has_events(struct kvm_vcpu *vcpu)
 }
 
 /* 
- * 如果vcpu当前处于运行状态,或当前有需要vcpu处理的时间,例如中断,异常等.
+ * 确认vcpu当前是否处于运行状态, 或当前有需要vcpu处理的事件,如中断异常等.
  */
 int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
 {

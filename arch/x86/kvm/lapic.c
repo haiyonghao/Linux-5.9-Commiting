@@ -412,9 +412,10 @@ static u8 count_vectors(void *bitmap)
 	return count;
 }
 
-/*  返回1表示更新了IRR中的最高的vector index，存储在max_irr中
-  * 返回0表示没有更新IRR中的最高vector index
-  */
+/*  
+ * 返回1表示更新了IRR中的最高的vector index，存储在max_irr中
+ * 返回0表示没有更新IRR中的最高vector index
+*/
 bool __kvm_apic_update_irr(u32 *pir, void *regs, int *max_irr)
 {
 	u32 i, vec;
@@ -474,7 +475,11 @@ static inline int apic_find_highest_irr(struct kvm_lapic *apic)
 
 	return result;
 }
-
+/* 
+ * 如果开启了apicv, 就清掉IRR中的指定vector对应的bit, 并将RVI更新为新IRR中优先级最高的vector.
+ * 如果没有开启apicv, 就清掉IRR中的指定vector对应的bit, 并检查新IRR中是否仍有中断,如果有,则设置
+ * "IRR中当前仍有中断pending"的指示变量:apic->irr_pending为true.
+ */
 static inline void apic_clear_irr(int vec, struct kvm_lapic *apic)
 {
 	struct kvm_vcpu *vcpu;
@@ -494,6 +499,12 @@ static inline void apic_clear_irr(int vec, struct kvm_lapic *apic)
 	}
 }
 
+/* 
+ * 首先设置ISR中,vec(vector)对应的bit. 
+ * 其次,如果支持apicv,就更新SVI为vec,无需设置ISR cache.
+ * 如果不支持apicv,则设置ISR中的最高ISR cache(highest_isr_cache),
+ * 该变量的作用是: 如果检查发现该变量为-1,则需要扫描整个ISR内容
+ */
 static inline void apic_set_isr(int vec, struct kvm_lapic *apic)
 {
 	struct kvm_vcpu *vcpu;
@@ -541,9 +552,18 @@ static inline int apic_find_highest_isr(struct kvm_lapic *apic)
 	return result;
 }
 
+/*  
+ * 首先clear ISR中vec对应的bit.
+ * 其次,如果支持apicv,就将新ISR中优先级最高vector更新到SVI中.表示vcpu正在处理新的中断
+ * 		如果不支持apicv, 就使apic->highest_isr_cache处于无效值.
+ !  为什么要使isr_cache处于无效值?
+ ? 因为: 原来的ISR中的最高优先级vector已经被清掉,而cache中存的是原来的vector,所以要invalid.
+ */
+
 static inline void apic_clear_isr(int vec, struct kvm_lapic *apic)
 {
 	struct kvm_vcpu *vcpu;
+	/* 这里的默认逻辑是,如果ISR中某bit为0,却要clear 它,那一定有问题,所以直接return */
 	if (!__apic_test_and_clear_vector(vec, apic->regs + APIC_ISR))
 		return;
 
@@ -691,7 +711,13 @@ static void pv_eoi_clr_pending(struct kvm_vcpu *vcpu)
 	__clear_bit(KVM_APIC_PV_EOI_PENDING, &vcpu->arch.apic_attention);
 }
 
-/* 当PIR/IRR中的最高vector比PPR大时，才返回该vector，否则返回-1 */
+/* 
+ * Return: 当PIR/IRR中的最高vector比PPR大时，才返回该vector，否则返回-1 
+ * 
+ * 检测apic中是否有中断超过PPR的优先级.
+ * 如果支持apicv, 只需要做将PIR或这IRR中的最新最高bit更新到RVI中,在vmentry时会发生PPR虚拟化,即更新vPPR
+ * 如果不支持apicv,那么就返回比PPR大的最高优先级的IRR-vector.
+ */
 static int apic_has_interrupt_for_ppr(struct kvm_lapic *apic, u32 ppr)
 {
 	int highest_irr;
@@ -1522,6 +1548,11 @@ static void apic_update_lvtt(struct kvm_lapic *apic)
 /*
  * On APICv, this test will cause a busy wait
  * during a higher-priority task.
+ * 
+ * 如果支持APICv,通过vIRR就可以确认某vector是否注入到了Guest,
+ * 因为IRR中的中断,只要set,迟早会注入到Guest中.
+ * 如果不支持APICv,通过vISR才能确认,只有某中断当前正在被Guest服务,
+ * 才能认为注入到了Guest中.
  */
 
 static bool lapic_timer_int_injected(struct kvm_vcpu *vcpu)
@@ -1631,6 +1662,10 @@ static void kvm_apic_inject_pending_timer_irqs(struct kvm_lapic *apic)
 	}
 }
 
+/* 
+ * vLAPIC的timer结束,注入中断给vCPU.(分onshot和deadline mode.)
+ * 如果使用apicv,就
+ * */
 static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 {
 	struct kvm_vcpu *vcpu = apic->vcpu;
@@ -1648,7 +1683,7 @@ static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 		return;
 	}
 
-	if (kvm_use_posted_timer_interrupt(apic->vcpu)) {
+	if (kvm_use_posted_timer_interrupt(apic->vcpu)) { // Nested cases.
 		if (apic->lapic_timer.timer_advance_ns)
 			__kvm_wait_lapic_expire(vcpu);
 		kvm_apic_inject_pending_timer_irqs(apic);

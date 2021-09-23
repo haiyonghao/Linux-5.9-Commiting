@@ -2727,12 +2727,17 @@ static void shrink_halt_poll_ns(struct kvm_vcpu *vcpu)
 	trace_kvm_halt_poll_ns_shrink(vcpu->vcpu_id, val, old);
 }
 
+/* 
+ * 确认是否有事件到来,以打断vcpu当前的block状态.
+ * 需要打断则返回-EINTR, 无需打断你返回0.
+ */
 static int kvm_vcpu_check_block(struct kvm_vcpu *vcpu)
 {
 	int ret = -EINTR;
 	int idx = srcu_read_lock(&vcpu->kvm->srcu);
 
-	if (kvm_arch_vcpu_runnable(vcpu)) {
+	if (kvm_arch_vcpu_runnable(vcpu)) { // * 如果当前被block的中断需要处理中断或异常,
+										// * 则发送KVM_REQ_UNHALT请求.
 		kvm_make_request(KVM_REQ_UNHALT, vcpu);
 		goto out;
 	}
@@ -2758,6 +2763,12 @@ update_halt_poll_stats(struct kvm_vcpu *vcpu, u64 poll_ns, bool waited)
 
 /*
  * The vCPU has executed a HLT instruction with in-kernel mode enabled.
+ * 
+ *  
+ * 从当前开始计时vcpu->halt_poll_ns,在这个时间段内,不放弃当前PCPU的控制权, 如果期间
+ * vcpu收到了wakeup的事件,就继续运行,vcpu总block时间为*out*标号后的block_ns.
+ * 如果在这个时间段内,没有收到wakeup事件,就将当前vcpu(线程)的状态设置为
+ * TASK_INTERRUPTIBLE,并放弃CPU.
  */
 void kvm_vcpu_block(struct kvm_vcpu *vcpu)
 {
@@ -2768,6 +2779,7 @@ void kvm_vcpu_block(struct kvm_vcpu *vcpu)
 	kvm_arch_vcpu_blocking(vcpu);
 
 	start = cur = poll_end = ktime_get();
+
 	if (vcpu->halt_poll_ns && !kvm_arch_no_poll(vcpu)) {
 		ktime_t stop = ktime_add_ns(ktime_get(), vcpu->halt_poll_ns);
 
