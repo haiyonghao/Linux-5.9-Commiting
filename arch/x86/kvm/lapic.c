@@ -1561,7 +1561,7 @@ static bool lapic_timer_int_injected(struct kvm_vcpu *vcpu)
 	u32 reg = kvm_lapic_get_reg(apic, APIC_LVTT);
 
 	if (kvm_apic_hw_enabled(apic)) {
-		int vec = reg & APIC_VECTOR_MASK;
+		int vec = reg & APIC_VECTOR_MASK; // * 拿出LVTT中的vector
 		void *bitmap = apic->regs + APIC_ISR;
 
 		if (vcpu->arch.apicv_active)
@@ -1664,8 +1664,9 @@ static void kvm_apic_inject_pending_timer_irqs(struct kvm_lapic *apic)
 
 /* 
  * vLAPIC的timer结束,注入中断给vCPU.(分onshot和deadline mode.)
- * 如果使用apicv,就
- * */
+ * 如果使用apicv,就直接利用"kvm_apic_inject_pending_timer_irqs"将中断更新到IRR+PIR中,并kick vcpu.
+ * 如果不使用apicv,就直接发送KVM_REQ_PENDING_TIMER请求,并kick vcpu.
+ */
 static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 {
 	struct kvm_vcpu *vcpu = apic->vcpu;
@@ -2316,6 +2317,7 @@ void kvm_lapic_set_base(struct kvm_vcpu *vcpu, u64 value)
 		pr_warn_once("APIC base relocation is unsupported by KVM");
 }
 
+/* 更新apic->irr_pending的状态 (apicv状态下为1),以及isr_count.*/
 void kvm_apic_update_apicv(struct kvm_vcpu *vcpu)
 {
 	struct kvm_lapic *apic = vcpu->arch.apic;

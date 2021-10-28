@@ -1891,7 +1891,16 @@ static int set_tsc_khz(struct kvm_vcpu *vcpu, u32 user_tsc_khz, bool scale)
 		}
 	}
 
-	/* TSC scaling required  - calculate ratio */
+	/* 
+	 * TSC scaling required  - calculate ratio 
+	 * (1 << 48) * user_tsc_khz / tsc_khz.
+	 * 上述这个公式获得的ratio是一个64bit的数,该公式中之所以要有(1<<48),
+	 * 是因为VMCS中的TSC-Multiplier是一个64bit的field,其中高12bit是该
+	 * 乘数的整数部分,低48bit为该乘数的小数部分.
+	 * 
+	 * vcpu->arch.tsc_scaling_ratio这个值会在vmx_vcpu_load_vmcs时加载进
+	 * TSC-Multiplier中.
+	 */
 	ratio = mul_u64_u32_div(1ULL << kvm_tsc_scaling_ratio_frac_bits,
 				user_tsc_khz, tsc_khz);
 
@@ -7802,9 +7811,11 @@ static void post_kvm_run_save(struct kvm_vcpu *vcpu)
 		kvm_vcpu_ready_for_interrupt_injection(vcpu);
 }
 
-/*  该函数只有在lapic在kernel中，不使用apicv时才起作用。
-  * 此时，找到lapic中irr中的最高vector和tpr，然后利用这俩值更新tpr
-  */
+/*  
+ * 该函数只有在lapic在kernel中，不使用apicv时才起作用。
+ * 因为使用apicv时,cr8会被直接虚拟化,无需vmexit到kvm解释.
+ * 此时，找到lapic中irr中的最高vector和tpr，然后利用这俩值更新tpr.
+ */
 static void update_cr8_intercept(struct kvm_vcpu *vcpu)
 {
 	int max_irr, tpr;
@@ -8563,7 +8574,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 * notified with kvm_vcpu_kick.
 	 */
 	if (kvm_lapic_enabled(vcpu) && vcpu->arch.apicv_active)
-		kvm_x86_ops.sync_pir_to_irr(vcpu); // 将pir更新到irr，并发送 特殊的posted notification,更新RVI
+		kvm_x86_ops.sync_pir_to_irr(vcpu); // 将pir更新到irr，并更新RVI
 
 	if (kvm_vcpu_exit_request(vcpu)) {
 		vcpu->mode = OUTSIDE_GUEST_MODE;

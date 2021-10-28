@@ -2372,7 +2372,8 @@ static int hardware_enable(void)
 	if (static_branch_unlikely(&enable_evmcs) &&
 	    !hv_get_vp_assist_page(cpu))
 		return -EFAULT;
-
+	// ! kvm会在收到第一个创建虚拟机的ioctl时,在所有PCPU上运行VMXON指令.
+	// ! 在最后一个虚拟机关闭退出后,在所有PCPU上运行VMXOFF指令.
 	r = kvm_cpu_vmxon(phys_addr);
 	if (r)
 		return r;
