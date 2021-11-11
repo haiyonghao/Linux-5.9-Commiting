@@ -1926,7 +1926,12 @@ static int kvm_set_tsc_khz(struct kvm_vcpu *vcpu, u32 user_tsc_khz)
 		return -1;
 	}
 
-	/* Compute a scale to convert nanoseconds in TSC cycles */
+	/* 
+	 * Compute a scale to convert nanoseconds in TSC cycles 
+	 * 计算两个系数,即乘数tsc_mult和偏移数tsc_shift.
+	 * 用这两个系数可以在compute_guest_tsc()中,将guest的纳秒单位转换为
+	 * Host的tsc cycles.
+	 */
 	kvm_get_time_scale(user_tsc_khz * 1000LL, NSEC_PER_SEC,
 			   &vcpu->arch.virtual_tsc_shift,
 			   &vcpu->arch.virtual_tsc_mult);
@@ -1937,6 +1942,9 @@ static int kvm_set_tsc_khz(struct kvm_vcpu *vcpu, u32 user_tsc_khz)
 	 * within the range of tolerance and decide if the
 	 * rate being applied is within that bounds of the hardware
 	 * rate.  If so, no scaling or compensation need be done.
+	 * 
+	 * 如果qemu传入的tsc频率处在物理cpu的tsc频率的[-0.025%,0.025%]
+	 * 区间,则不用进行tsc的转换.
 	 */
 	thresh_lo = adjust_tsc_khz(tsc_khz, -tsc_tolerance_ppm);
 	thresh_hi = adjust_tsc_khz(tsc_khz, tsc_tolerance_ppm);
@@ -7963,9 +7971,9 @@ static void inject_pending_event(struct kvm_vcpu *vcpu, bool *req_immediate_exit
 		if (vcpu->arch.nmi_pending) // 如果仍然有正在等待的NMI，使vCPU尽快退出来处理
 			kvm_x86_ops.enable_nmi_window(vcpu);
 	}
-
+	/* 对于external interrupts, 注入前根据guest是否允许中断,以及是否需要注入上次中断而不注入这次中断, 会有三种不同的行为 */
 	if (kvm_cpu_has_injectable_intr(vcpu)) { // 不管是ExtINT，还是来自LAPIC的普通中断，都算是injectable_intr
-																						// 如果开启了apicv，则会默认开启virtual Interrupt delivery，来自apic的中断会由硬件自动处理
+											// 如果开启了apicv，则会默认开启virtual Interrupt delivery，来自apic的中断会由硬件自动处理
 		r = can_inject ? kvm_x86_ops.interrupt_allowed(vcpu, true) : -EBUSY; // r=0表示不允许中断，r=1表示允许中断，r<0表示不允许注入中断
 		if (r < 0)
 			goto busy;
@@ -8402,7 +8410,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	bool req_int_win =
 		dm_request_for_irq_injection(vcpu) &&
 		kvm_cpu_accept_dm_intr(vcpu); // 如果用户空间将vcpu->run中的request_interrupt_window设置为1，以请求guest尽快退出，
-																			 // 并且CPU能接收类似PIC的中断
+									 // 并且CPU能接收类似PIC的中断
 	fastpath_t exit_fastpath;
 
 	bool req_immediate_exit = false;

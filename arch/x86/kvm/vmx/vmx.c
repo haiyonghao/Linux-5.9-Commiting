@@ -4655,7 +4655,7 @@ static int vmx_nmi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 
 	return !vmx_nmi_blocked(vcpu);
 }
-
+/* guest IF=1,Guest_Interruptibilty_Info中的sti和mov ss不为1,则可以向guest注入中断 */
 bool vmx_interrupt_blocked(struct kvm_vcpu *vcpu)
 {
 	if (is_guest_mode(vcpu) && nested_exit_on_intr(vcpu))
