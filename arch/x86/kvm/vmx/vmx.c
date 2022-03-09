@@ -8297,7 +8297,8 @@ static __init int hardware_setup(void)
 	}
 
 	vmx_set_cpu_caps();
-
+	// 这个函数所在的hardware_setup会在kvm_init时被调用,为每个物理
+	// CPU分配一个vmxon-region,格式为vmcs的格式
 	r = alloc_kvm_area();
 	if (r)
 		nested_vmx_hardware_unsetup();

@@ -4062,7 +4062,12 @@ static int kvm_dying_cpu(unsigned int cpu)
 	raw_spin_unlock(&kvm_count_lock);
 	return 0;
 }
-
+/* 
+ * 在销毁最后一个vm时,需要在每一个CPU上调用hardware_disable_nolock,
+ * 释放一些硬件资源,其中很重要的一项是为CPU释放vmxon region.
+ * 
+ * 即: kvm会在销毁最后一个虚拟机时为所有物理CPU销毁vmxon region.
+ */
 static void hardware_disable_all_nolock(void)
 {
 	BUG_ON(!kvm_usage_count);
@@ -4079,6 +4084,12 @@ static void hardware_disable_all(void)
 	raw_spin_unlock(&kvm_count_lock);
 }
 
+/* 
+ * 在创建第一个vm时,需要在每一个CPU上调用hardware_enable_nolock,
+ * 使能硬件环境,其中很重要的一项是为CPU分配vmxon region.
+ * 
+ * 即: kvm会在创建第一个虚拟机时为所有物理CPU分配vmxon region
+ */
 static int hardware_enable_all(void)
 {
 	int r = 0;
