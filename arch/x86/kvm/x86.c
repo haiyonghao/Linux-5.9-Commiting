@@ -7822,7 +7822,7 @@ static void post_kvm_run_save(struct kvm_vcpu *vcpu)
 /*  
  * 该函数只有在lapic在kernel中，不使用apicv时才起作用。
  * 因为使用apicv时,cr8会被直接虚拟化,无需vmexit到kvm解释.
- * 此时，找到lapic中irr中的最高vector和tpr，然后利用这俩值更新tpr.
+ * 此时，找到lapic中irr中的最高vector和tpr，然后利用这俩值更新tpr-threshold.
  */
 static void update_cr8_intercept(struct kvm_vcpu *vcpu)
 {
@@ -8539,7 +8539,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 			kvm_x86_ops.enable_irq_window(vcpu); // 如果满足用户空间请求interrupt-window的条件，就打开interrupt-window
 
 		if (kvm_lapic_enabled(vcpu)) { // 软件和硬件都使能了lapic
-			update_cr8_intercept(vcpu); // 更新TPR
+			update_cr8_intercept(vcpu); // 更新TPR-threshold
 			kvm_lapic_sync_to_vapic(vcpu); // 将tpr、isr、irr更新到guest的lapic cache中去
 		}
 	}
