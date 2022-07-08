@@ -37,6 +37,16 @@
 #define DRIVER_AUTHOR	"Alex Williamson <alex.williamson@redhat.com>"
 #define DRIVER_DESC	"VFIO - User Level meta-driver"
 
+/*Ewan: vfio core structure has:
+ 		- iommu_driver_list, which is a iommu driver list.
+		- group_list, which is a iommu group list, specifically, vfio->group_list is a 
+		  list contains a list of group->vfio_next s, this design will do good to for_each_entry
+		  of (group, vfio->group_list, vfio_next), we can get vfio_group.
+		- group_cdev, group character device, which is a charater device 
+		  for group interface.
+		- grou_devt, device type group device, which is a device type 
+		  for regarding group as a device?
+*/
 static struct vfio {
 	struct class			*class;
 	struct list_head		iommu_drivers_list;
@@ -49,11 +59,19 @@ static struct vfio {
 	wait_queue_head_t		release_q;
 } vfio;
 
+
+/* Ewan: vfio_iommu_driver, which is iommu driver for vfio, rather not 
+         normal iommu_driver, the vfio_iommu_driver is for vfio_group and 
+		 vfio device.
+*/
 struct vfio_iommu_driver {
 	const struct vfio_iommu_driver_ops	*ops;
 	struct list_head			vfio_next;
 };
 
+/* Ewan: vfio_container is a container which contains vfio_iommu_driver,
+		 and other iommu_data, like real iommu_driver data.
+*/
 struct vfio_container {
 	struct kref			kref;
 	struct list_head		group_list;
@@ -63,11 +81,22 @@ struct vfio_container {
 	bool				noiommu;
 };
 
+/* Ewan: I have never seen this, and cannot get meaning literally.*/
 struct vfio_unbound_dev {
 	struct device			*dev;
 	struct list_head		unbound_next;
 };
 
+/* Ewan: The most important structure in vfio, vfio_group contains:
+	- iommu_group, the pointer to iommu_group.
+	- container, the pointer to vfio_container.
+	- device_list, a list links all device in this vfio_group.
+	-  dev, the pointer to /dev/vfio/$GROUP.
+	-  vfio_next, the entry of vfio->group_list.
+	?  container_next, link to next vfio_container? what?
+	- container_q, vfio_container queue.
+	- kvm, yeah, kvm. 
+	*/
 struct vfio_group {
 	struct kref			kref;
 	int				minor;
@@ -90,6 +119,13 @@ struct vfio_group {
 	struct blocking_notifier_head	notifier;
 };
 
+/* Ewan: vfio_device contains:
+		 - dev, pointer to real device.
+		 - ops, the operations for this vfio_device.
+		 - group, the pointer to the vfio_device's vfio_group.
+		 - group_next, link to next vfio_group.
+		 - device_data, pointer to device's private data.
+*/
 struct vfio_device {
 	struct kref			kref;
 	struct device			*dev;
@@ -119,6 +155,10 @@ struct iommu_group *vfio_iommu_group_get(struct device *dev)
 	struct iommu_group *group;
 	int __maybe_unused ret;
 
+	/* Ewan: iommu driver give each device a iommu_group, contains
+			 in dev->iommu_group. so iommu_group_get(dev) just get 
+			 this iommu_group and increase by 1 of iommu_group->kobj.
+	*/
 	group = iommu_group_get(dev);
 
 #ifdef CONFIG_VFIO_NOIOMMU
@@ -219,6 +259,10 @@ static const struct vfio_iommu_driver_ops vfio_noiommu_ops = {
 
 /**
  * IOMMU driver registration
+ * 
+ * Ewan: vfio_register_iommu_driver does:
+ * 	1. allocate a vfio_iommu_driver structure, and assign ops for this structure.
+ * 	2. add the new vfio_iommu_driver to vfio.iommu_drivers_list.
  */
 int vfio_register_iommu_driver(const struct vfio_iommu_driver_ops *ops)
 {
@@ -271,6 +315,7 @@ EXPORT_SYMBOL_GPL(vfio_unregister_iommu_driver);
  */
 static int vfio_alloc_group_minor(struct vfio_group *group)
 {
+	/* Ewan: vfio manages all group idr, so we can allocate a minist id for every group.*/
 	return idr_alloc(&vfio.group_idr, group, 0, MINORMASK + 1, GFP_KERNEL);
 }
 
@@ -289,6 +334,9 @@ static void vfio_group_get(struct vfio_group *group);
  * it's freed via kref.  Must support container/group/device being
  * closed in any order.
  */
+// Ewan: comments above indicates that: 
+// 1. container does not equal to /dev/vfio/vfio, there can be many containers.
+// 2. every container has a kref, indicates the user number.
 static void vfio_container_get(struct vfio_container *container)
 {
 	kref_get(&container->kref);
@@ -377,6 +425,7 @@ static struct vfio_group *vfio_create_group(struct iommu_group *iommu_group)
 		return ERR_PTR(minor);
 	}
 
+	// create a device in /dev/vfio/MKDEV(MAJOR(vfio.group_devt),minor)
 	dev = device_create(vfio.class, NULL,
 			    MKDEV(MAJOR(vfio.group_devt), minor),
 			    group, "%s%d", group->noiommu ? "noiommu-" : "",
@@ -452,6 +501,15 @@ static void vfio_group_schedule_put(struct vfio_group *group)
 	do_work->group = group;
 	schedule_work(&do_work->work);
 }
+
+/* Ewan:
+	there is some different in vfio_group_get() and vfio_group_get_from_xxx(),
+	formmer just increase group->kref by 1, and latters may not only increase
+	group->kref by 1, but also returns the group.
+
+	we can get vfio_group from iommu,minor,dev(real device).
+ */
+
 
 /* Assume group_lock or group reference is held */
 static void vfio_group_get(struct vfio_group *group)
@@ -531,6 +589,13 @@ static struct vfio_group *vfio_group_get_from_dev(struct device *dev)
 
 /**
  * Device objects - create, release, get, put, search
+ * 
+ * Ewan: vfio_group_create_device:
+ * 		create a vfio_device in specified vfio_group,
+ * 		this vfio_device contains information about
+ * 		physical device, device operations, vfio_group,
+ * 		and important, now physical device `dev->driver_data 
+ * 		== this vfio_device.`
  */
 static
 struct vfio_device *vfio_group_create_device(struct vfio_group *group,
@@ -588,6 +653,12 @@ void vfio_device_put(struct vfio_device *device)
 	vfio_group_put(group);
 }
 EXPORT_SYMBOL_GPL(vfio_device_put);
+
+/* Ewan: vfio_device_get() first get the device's vfio_group, 
+		 then get the device.
+		 Both `get operation` is just increase kref in each structure
+		 by 1.
+*/
 
 static void vfio_device_get(struct vfio_device *device)
 {
@@ -657,6 +728,8 @@ static bool vfio_dev_driver_allowed(struct device *dev,
  * group.  The second is to test if the device exists on the group
  * unbound_list, indicating it's in the middle of transitioning from
  * a vfio driver to driver-less.
+ * 
+ * Ewan: maybe the parameter `data` is always the vfio_group type?
  */
 static int vfio_dev_viable(struct device *dev, void *data)
 {
@@ -800,6 +873,14 @@ static int vfio_iommu_group_notifier(struct notifier_block *nb,
 
 /**
  * VFIO driver API
+ * 
+ * Ewan: vfio_add_group_dev do:
+ * 	1. create a vfio_group(init & /dev/vfio/$GROUP) if not already exits.
+ * 	2. create a vfio_device(ops,dev,device_data) if not already exists.
+ * 
+ * generally, this API package the real device into vfio_device, and put 
+ * it into vfio_group, and the vfio_group->iommu_group = real dev->iommu_group.
+ * 
  */
 int vfio_add_group_dev(struct device *dev,
 		       const struct vfio_device_ops *ops, void *device_data)
@@ -814,6 +895,7 @@ int vfio_add_group_dev(struct device *dev,
 
 	group = vfio_group_get_from_iommu(iommu_group);
 	if (!group) {
+		// Ewan: initialize a vfio_group and create /dev/vfio/$
 		group = vfio_create_group(iommu_group);
 		if (IS_ERR(group)) {
 			iommu_group_put(iommu_group);
@@ -1016,6 +1098,9 @@ EXPORT_SYMBOL_GPL(vfio_del_group_dev);
 
 /**
  * VFIO base fd, /dev/vfio/vfio
+ * 
+ * Ewan: ioctl to /dev/vfio/vfio will redirect the ioctl to vfio-driver, rather than
+ * vfio core.
  */
 static long vfio_ioctl_check_extension(struct vfio_container *container,
 				       unsigned long arg)
@@ -1069,7 +1154,10 @@ static long vfio_ioctl_check_extension(struct vfio_container *container,
 	return ret;
 }
 
-/* hold write lock on container->group_lock */
+/* hold write lock on container->group_lock 
+	Ewan: attach vfio_group to vfio_container, this behaviour is 
+		  driver specific.
+*/
 static int __vfio_container_attach_groups(struct vfio_container *container,
 					  struct vfio_iommu_driver *driver,
 					  void *data)
@@ -1094,6 +1182,11 @@ unwind:
 	return ret;
 }
 
+/* Ewan: walk through all vfio_iommu_driver,first do `vfio_iommu_driver.open` to arg, 
+		 then attach all opened resource to container, based on vfio_group.
+
+		! This function need to be read after vfio code review complete.
+*/
 static long vfio_ioctl_set_iommu(struct vfio_container *container,
 				 unsigned long arg)
 {
@@ -1200,6 +1293,9 @@ static long vfio_fops_unl_ioctl(struct file *filep,
 	return ret;
 }
 
+/* Ewan: below is some operations for /dev/vfio/vfio, 
+		 they are open,release,read,write,mmap,...
+*/ 
 static int vfio_fops_open(struct inode *inode, struct file *filep)
 {
 	struct vfio_container *container;
@@ -1231,10 +1327,14 @@ static int vfio_fops_release(struct inode *inode, struct file *filep)
 /*
  * Once an iommu driver is set, we optionally pass read/write/mmap
  * on to the driver, allowing management interfaces beyond ioctl.
+ * 
+ * Ewan: do read("/dev/vfio/vfio") will cause vfio_iommu_driver.read 
+ * to container->iommu_data.
  */
 static ssize_t vfio_fops_read(struct file *filep, char __user *buf,
 			      size_t count, loff_t *ppos)
 {
+	// Ewan: in open(), /dev/vfio/vfio->private_data became null vfio_container.
 	struct vfio_container *container = filep->private_data;
 	struct vfio_iommu_driver *driver;
 	ssize_t ret = -EINVAL;
@@ -1350,6 +1450,10 @@ static void vfio_group_try_dissolve_container(struct vfio_group *group)
 		__vfio_group_unset_container(group);
 }
 
+/* Ewan: every vfio_container has a vfio_iommu_driver, every vfio_iommu_driver 
+		 includes an attach group method, which can attach specified group to 
+		 container.
+*/
 static int vfio_group_set_container(struct vfio_group *group, int container_fd)
 {
 	struct fd f;
@@ -1386,7 +1490,7 @@ static int vfio_group_set_container(struct vfio_group *group, int container_fd)
 	}
 
 	driver = container->iommu_driver;
-	if (driver) {
+	if (driver) { // attach group to container.
 		ret = driver->ops->attach_group(container->iommu_data,
 						group->iommu_group);
 		if (ret)
@@ -1407,6 +1511,7 @@ unlock_out:
 	return ret;
 }
 
+// Ewan: if every device in this group is viable, we think vfio_group is viable.
 static bool vfio_group_viable(struct vfio_group *group)
 {
 	return (iommu_group_for_each_dev(group->iommu_group,
@@ -1432,6 +1537,12 @@ static int vfio_group_add_container_user(struct vfio_group *group)
 
 static const struct file_operations vfio_device_fops;
 
+/* Ewan: vfio_group_get_device_fd does:
+	1. get vfio_device from name stored in buff
+	2. use vfio_device->ops assigned in vfio_group_create_device() to 
+	   open device->data.
+	3. create a inode connected under /dev/vfio/$GROUP/, with operations-vfio_device_fops
+*/ 
 static int vfio_group_get_device_fd(struct vfio_group *group, char *buf)
 {
 	struct vfio_device *device;
@@ -1494,6 +1605,7 @@ static int vfio_group_get_device_fd(struct vfio_group *group, char *buf)
 	return ret;
 }
 
+// Ewan: blow is some vfio_group file operations. groupfd->private_data = vfio_group.
 static long vfio_group_fops_unl_ioctl(struct file *filep,
 				      unsigned int cmd, unsigned long arg)
 {
@@ -1681,6 +1793,8 @@ static int vfio_device_fops_mmap(struct file *filep, struct vm_area_struct *vma)
 	return device->ops->mmap(device->device_data, vma);
 }
 
+// all method below is for vfio_device, and the operations implementation is device 
+// specific.
 static const struct file_operations vfio_device_fops = {
 	.owner		= THIS_MODULE,
 	.release	= vfio_device_fops_release,
@@ -2354,6 +2468,7 @@ static int __init vfio_init(void)
 	INIT_LIST_HEAD(&vfio.iommu_drivers_list);
 	init_waitqueue_head(&vfio.release_q);
 
+	// /dev/vfio/vfio
 	ret = misc_register(&vfio_dev);
 	if (ret) {
 		pr_err("vfio: misc device register failed\n");

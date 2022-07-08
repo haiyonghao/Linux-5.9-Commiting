@@ -2,6 +2,12 @@
     "C_Cpp.errorSquiggles": "Disabled",
     "git.ignoreLimitWarning": true,
     "files.associations": {
-        "async_pf.h": "c"
-    }
+        "async_pf.h": "c",
+        "vfio.h": "c",
+        "iommu.h": "c",
+        "fstream": "c",
+        "memory": "c",
+        "shared_mutex": "c"
+    },
+    "C_Cpp.dimInactiveRegions": false
 }

@@ -32,6 +32,11 @@ static unsigned int iommu_def_domain_type __read_mostly;
 static bool iommu_dma_strict __read_mostly = true;
 static u32 iommu_cmd_line __read_mostly;
 
+/*Ewan: iommu_group containes:
+		- devices, a list links all devices in this iommu group.
+		- iommu_data, a pointer to iommu driver data.
+		- domain, a pointer to group's iommu_domain.
+*/
 struct iommu_group {
 	struct kobject kobj;
 	struct kobject *devices_kobj;
