@@ -1932,6 +1932,7 @@ static int __iommu_attach_device(struct iommu_domain *domain,
 	if (unlikely(domain->ops->attach_dev == NULL))
 		return -ENODEV;
 
+	// Ewan: on intel platform, this will call intel_iommu_attach_device.
 	ret = domain->ops->attach_dev(domain, dev);
 	if (!ret)
 		trace_attach_device_to_domain(dev);

@@ -21,19 +21,17 @@ make: Failed to remake makefile 'include/config/auto.conf'.
 make -f ./scripts/Makefile.build obj=arch/x86/entry/syscalls all
  
 set -e;  echo '  SYSTBL  arch/x86/include/generated/asm/syscalls_32.h'; sh './arch/x86/entry/syscalls/syscalltbl.sh' arch/x86/entry/syscalls/syscall_32.tbl arch/x86/include/generated/asm/syscalls_32.h; printf '%s\n' 'cmd_arch/x86/include/generated/asm/syscalls_32.h := sh '\''./arch/x86/entry/syscalls/syscalltbl.sh'\'' arch/x86/entry/syscalls/syscall_32.tbl arch/x86/include/generated/asm/syscalls_32.h' > arch/x86/include/generated/asm/.syscalls_32.h.cmd
+ 
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_32.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_32.tbl' 'arch/x86/include/generated/uapi/asm/unistd_32.h' 'i386' '' ''; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_32.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_32.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_32.h'\'' '\''i386'\'' '\'''\'' '\'''\''' > arch/x86/include/generated/uapi/asm/.unistd_32.h.cmd
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_64.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_64.tbl' 'arch/x86/include/generated/uapi/asm/unistd_64.h' 'common,64' '' ''; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_64.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_64.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_64.h'\'' '\''common,64'\'' '\'''\'' '\'''\''' > arch/x86/include/generated/uapi/asm/.unistd_64.h.cmd
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_x32.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_64.tbl' 'arch/x86/include/generated/uapi/asm/unistd_x32.h' 'common,x32' '' '__X32_SYSCALL_BIT'; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_x32.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_64.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_x32.h'\'' '\''common,x32'\'' '\'''\'' '\''__X32_SYSCALL_BIT'\''' > arch/x86/include/generated/uapi/asm/.unistd_x32.h.cmd
 :
- 
 make -f ./scripts/Makefile.build obj=scripts/basic
  
 set -e;  echo '  HOSTCC  scripts/basic/fixdep'; gcc -Wp,-MMD,scripts/basic/.fixdep.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89         -o scripts/basic/fixdep scripts/basic/fixdep.c   ; scripts/basic/fixdep scripts/basic/.fixdep.d scripts/basic/fixdep 'gcc -Wp,-MMD,scripts/basic/.fixdep.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89         -o scripts/basic/fixdep scripts/basic/fixdep.c   ' > scripts/basic/.fixdep.cmd; rm -f scripts/basic/.fixdep.d
- 
 :
  
 rm -f .tmp_quiet_recordmcount
- 
 make -f ./scripts/Makefile.build obj=arch/x86/tools relocs
  
 set -e;  echo '  HOSTCC  arch/x86/tools/relocs_32.o'; gcc -Wp,-MMD,arch/x86/tools/.relocs_32.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_32.o arch/x86/tools/relocs_32.c; scripts/basic/fixdep arch/x86/tools/.relocs_32.o.d arch/x86/tools/relocs_32.o 'gcc -Wp,-MMD,arch/x86/tools/.relocs_32.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_32.o arch/x86/tools/relocs_32.c' > arch/x86/tools/.relocs_32.o.cmd; rm -f arch/x86/tools/.relocs_32.o.d
@@ -49,11 +47,11 @@ make -f ./scripts/Makefile.build obj=scripts/dtc
 make -f ./scripts/Makefile.build obj=scripts
  
 :
+ 
 make -f ./scripts/Makefile.asm-generic obj=arch/x86/include/generated/uapi/asm \
 generic=include/uapi/asm-generic
  
 set -e;  echo '  WRAP    arch/x86/include/generated/uapi/asm/bpf_perf_event.h'; echo "#include <asm-generic/bpf_perf_event.h>" > arch/x86/include/generated/uapi/asm/bpf_perf_event.h
- 
 set -e;  echo '  WRAP    arch/x86/include/generated/uapi/asm/errno.h'; echo "#include <asm-generic/errno.h>" > arch/x86/include/generated/uapi/asm/errno.h
 set -e;  echo '  WRAP    arch/x86/include/generated/uapi/asm/fcntl.h'; echo "#include <asm-generic/fcntl.h>" > arch/x86/include/generated/uapi/asm/fcntl.h
 set -e;  echo '  WRAP    arch/x86/include/generated/uapi/asm/ioctl.h'; echo "#include <asm-generic/ioctl.h>" > arch/x86/include/generated/uapi/asm/ioctl.h
@@ -74,7 +72,6 @@ generic=include/asm-generic
  
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/early_ioremap.h'; echo "#include <asm-generic/early_ioremap.h>" > arch/x86/include/generated/asm/early_ioremap.h
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/export.h'; echo "#include <asm-generic/export.h>" > arch/x86/include/generated/asm/export.h
- 
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/mcs_spinlock.h'; echo "#include <asm-generic/mcs_spinlock.h>" > arch/x86/include/generated/asm/mcs_spinlock.h
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/dma-contiguous.h'; echo "#include <asm-generic/dma-contiguous.h>" > arch/x86/include/generated/asm/dma-contiguous.h
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/irq_regs.h'; echo "#include <asm-generic/irq_regs.h>" > arch/x86/include/generated/asm/irq_regs.h
@@ -82,15 +79,14 @@ set -e;  echo '  WRAP    arch/x86/include/generated/asm/mm-arch-hooks.h'; echo "
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/mmiowb.h'; echo "#include <asm-generic/mmiowb.h>" > arch/x86/include/generated/asm/mmiowb.h
 set -e;  echo '  WRAP    arch/x86/include/generated/asm/rwonce.h'; echo "#include <asm-generic/rwonce.h>" > arch/x86/include/generated/asm/rwonce.h
 :
+ 
 echo Compiler lacks asm-goto support.
 exit 1
- 
 set -e; mkdir -p include/config/; trap "rm -f include/config/.kernel.release.tmp" EXIT; { echo "5.9.0$(sh ./scripts/setlocalversion .)"; } > include/config/.kernel.release.tmp; if [ ! -r include/config/kernel.release ] || ! cmp -s include/config/kernel.release include/config/.kernel.release.tmp; then echo '  UPD     include/config/kernel.release'; mv -f include/config/.kernel.release.tmp include/config/kernel.release; fi
  
 set -e; mkdir -p include/generated/uapi/linux/; trap "rm -f include/generated/uapi/linux/.version.h.tmp" EXIT; { 	echo \#define LINUX_VERSION_CODE 329984; echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))'; } > include/generated/uapi/linux/.version.h.tmp; if [ ! -r include/generated/uapi/linux/version.h ] || ! cmp -s include/generated/uapi/linux/version.h include/generated/uapi/linux/.version.h.tmp; then echo '  UPD     include/generated/uapi/linux/version.h'; mv -f include/generated/uapi/linux/.version.h.tmp include/generated/uapi/linux/version.h; fi
 rm -f include/linux/version.h
  
 set -e; mkdir -p include/generated/; trap "rm -f include/generated/.utsrelease.h.tmp" EXIT; { 	if [ `echo -n "" | wc -c ` -gt 64 ]; then echo '"" exceeds 64 characters' >&2; exit 1; fi; echo \#define UTS_RELEASE \"\"; } > include/generated/.utsrelease.h.tmp; if [ ! -r include/generated/utsrelease.h ] || ! cmp -s include/generated/utsrelease.h include/generated/.utsrelease.h.tmp; then echo '  UPD     include/generated/utsrelease.h'; mv -f include/generated/.utsrelease.h.tmp include/generated/utsrelease.h; fi
- 
 make: Leaving directory '/home/ewan/Workspace/github/Linux-5.9-reading'
  

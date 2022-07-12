@@ -21,7 +21,7 @@ make: *** [Makefile:701: .config] Error 1
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Jul  6 17:45:19 2022
+# Make data base, printed on Tue Jul 12 13:58:12 2022
 
 # Variables
 
@@ -132,7 +132,7 @@ mrproper-dirs := _mrproper_scripts
 # makefile (from 'arch/x86/Makefile', line 259)
 KBUILD_IMAGE := arch/x86/boot/bzImage
 # environment
-JOURNAL_STREAM = 8:40863
+JOURNAL_STREAM = 8:37655
 # environment
 XDG_CONFIG_DIRS = /etc/xdg/xdg-ubuntu:/etc/xdg
 # makefile (from 'Makefile', line 976)
@@ -202,13 +202,13 @@ AWK = awk
 # makefile (from 'Makefile', line 973)
 KBUILD_AFLAGS := -D__ASSEMBLY__ -fno-PIE -m64 
 # environment
-MANAGERPID = 1413
+MANAGERPID = 1467
 # environment
 CLUTTER_IM_MODULE = fcitx
 # makefile (from 'scripts/Kbuild.include', line 8)
 squote := '
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-70ff9648-3c6b-4935-b0eb-6f3ee65bc58f.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-f216001c-9823-4793-acc6-5e9a44c6d105.sock
 # makefile (from 'Makefile', line 1236)
 uts_len := 64
 # environment
@@ -248,9 +248,10 @@ PYTHON3 = python3
 # makefile (from 'Makefile', line 988)
 KBUILD_USERCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89 -m64
 # environment
-SESSION_MANAGER = local/zx-sw2-os-ewan:@/tmp/.ICE-unix/1633,unix/zx-sw2-os-ewan:/tmp/.ICE-unix/1633
+SESSION_MANAGER = local/zx-sw2-os-ewan:@/tmp/.ICE-unix/1691,unix/zx-sw2-os-ewan:/tmp/.ICE-unix/1691
 # makefile (from 'scripts/Kbuild.include', line 10)
 space := $(subst ,, )
+ 
 # environment
 XDG_RUNTIME_DIR = /run/user/1000
 # makefile (from 'Makefile', line 1281)
@@ -290,7 +291,7 @@ VSCODE_LOG_STACK = false
 # environment
 ELECTRON_RUN_AS_NODE = 1
 # environment
-INVOCATION_ID = 33c06e3d3e404334b35ac8e80522ddef
+INVOCATION_ID = c05824e281cd4b8dafa8b657a66959ce
 # makefile (from 'scripts/Kbuild.include', line 160)
 build := -f ./scripts/Makefile.build obj
 # makefile (from 'Makefile', line 5)
@@ -318,7 +319,7 @@ SUBLEVEL = 0
 # environment
 SSH_AUTH_SOCK = /run/user/1000/keyring/ssh
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 2026
+GIO_LAUNCHED_DESKTOP_FILE_PID = 7026
 # makefile (from 'Makefile', line 467)
 ZSTD = zstd
 # automatic
@@ -336,7 +337,6 @@ KCONFIG_CONFIG = .config
 # makefile (from 'Makefile', line 263)
 no-dot-config-targets := %clean mrproper cleandocs cscope gtags TAGS tags help% %docs check% coccicheck include/generated/uapi/linux/version.h headers headers_% archheaders archscripts %asm-generic kernelversion %src-pkg dt_binding_check outputmakefile
 # makefile (from 'Makefile', line 678)
- 
 RETPOLINE_CFLAGS_CLANG := -mretpoline-external-thunk
 # makefile (from 'Makefile', line 1010)
 INSTALL_PATH = /boot
@@ -371,7 +371,7 @@ RETPOLINE_VDSO_CFLAGS_CLANG := -mretpoline
 # makefile (from 'arch/x86/Makefile', line 18)
 cc_stack_align4 := -mpreferred-stack-boundary=2
 # environment
-SSH_AGENT_PID = 1590
+SSH_AGENT_PID = 1648
 # environment
 ORIGINAL_XDG_CURRENT_DESKTOP = ubuntu:GNOME
 # makefile (from 'Makefile', line 460)
@@ -586,6 +586,7 @@ space_escape := _-_SPACE_-_
 # makefile (from 'Makefile', line 424)
 KBUILD_HOSTLDLIBS := $(subst ,, )
 # makefile (from 'Makefile', line 90)
+ 
 quiet = quiet_
 # automatic
 +D = $(patsubst %/,%,$(dir $+))
@@ -702,7 +703,6 @@ OBJCOPY = $(CROSS_COMPILE)objcopy
 # makefile (from 'Makefile', line 1069)
 HOST_LIBELF_LIBS = $(shell pkg-config libelf --libs 2>/dev/null || echo -lelf)
 # makefile (from 'arch/x86/Makefile', line 42)
- 
 REALMODE_CFLAGS :=  -m16 -g -Os -DDISABLE_BRANCH_PROFILING -Wall -Wstrict-prototypes -march=i386 -mregparm=3 -fno-strict-aliasing -fomit-frame-pointer -fno-pic -mno-mmx -mno-sse -ffreestanding -fno-stack-protector  -Wno-address-of-packed-member  -mpreferred-stack-boundary=2
 # makefile (from 'arch/x86/Makefile', line 88)
 UTS_MACHINE := x86_64
@@ -738,6 +738,7 @@ RETPOLINE_CFLAGS_GCC := -mindirect-branch=thunk-extern -mindirect-branch-registe
 KBUILD_EXTMOD := 
 # makefile (from 'Makefile', line 212)
 KBUILD_CHECKSRC = 0
+ 
 # default
 .RECIPEPREFIX := 
 # makefile (from 'Makefile', line 450)
@@ -767,7 +768,7 @@ clean := -f ./scripts/Makefile.clean obj
 # makefile (from 'scripts/Kbuild.include', line 9)
 empty := 
 # environment
-VSCODE_PID = 2026
+VSCODE_PID = 7026
 # makefile (from 'Makefile', line 1130)
 vmlinux-deps := arch/x86/kernel/vmlinux.lds arch/x86/kernel/head_64.o arch/x86/kernel/head64.o arch/x86/kernel/ebda.o arch/x86/kernel/platform-quirks.o init/built-in.a usr/built-in.a arch/x86/built-in.a kernel/built-in.a certs/built-in.a mm/built-in.a fs/built-in.a ipc/built-in.a security/built-in.a crypto/built-in.a block/built-in.a lib/built-in.a arch/x86/lib/built-in.a drivers/built-in.a sound/built-in.a net/built-in.a virt/built-in.a lib/lib.a arch/x86/lib/lib.a
 # makefile (from 'scripts/Kbuild.include', line 7)
@@ -811,6 +812,7 @@ kselftest-%: FORCE
 	$(Q)$(MAKE) -C $(srctree)/tools/testing/selftests $*
 
 %src-pkg: FORCE
+ 
 #  recipe to execute (from 'Makefile', line 1521):
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.package $@
 
@@ -831,7 +833,6 @@ lib/lib.a: descend
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
 #  Modification time never checked.
- 
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
 	
@@ -878,6 +879,7 @@ certs/modules.order: descend
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
+ 
 	
 
 arch/x86/kernel/head_64.o: descend
@@ -950,11 +952,11 @@ outputmakefile:
 dochelp:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
- 
 #  File is an intermediate prerequisite.
 #  File does not exist.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1658):
+ 
 	$(Q)$(MAKE) $(build)=Documentation $@
 
 # makefile (from 'Makefile', line 1492)
@@ -1005,6 +1007,7 @@ fdimage288: vmlinux
 #  recipe to execute (from 'arch/x86/Makefile', line 270):
 	$(Q)$(MAKE) $(build)=$(boot) $@
 
+ 
 all: vmlinux bzImage
 #  Phony target (prerequisite of .PHONY).
 #  Command line target.
@@ -1062,6 +1065,7 @@ crypto/modules.order: descend
 #  File is an intermediate prerequisite.
 #  Modification time never checked.
 #  File has not been updated.
+ 
 #  recipe to execute (from 'Makefile', line 1168):
 	
 
@@ -1098,6 +1102,7 @@ modules:
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1444):
 	@echo >&2
+ 
 	@echo >&2 "The present kernel configuration has modules disabled."
 	@echo >&2 "Type 'make config' and enable loadable module support."
 	@echo >&2 "Then build a kernel with module support enabled."
@@ -1170,8 +1175,8 @@ cleandocs:
 #  recipe to execute (from 'Makefile', line 1658):
 	$(Q)$(MAKE) $(build)=Documentation $@
 
-# makefile (from 'Makefile', line 1504)
  
+# makefile (from 'Makefile', line 1504)
 distclean: rm-files := 
 distclean: mrproper
 #  Phony target (prerequisite of .PHONY).
@@ -1231,6 +1236,7 @@ fdimage: vmlinux
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
 #  Modification time never checked.
+ 
 #  File has not been updated.
 
 tags: FORCE
@@ -1278,6 +1284,7 @@ lib/modules.order: descend
 # Not a target:
 Makefile:
 #  Implicit rule search has not been done.
+ 
 #  Last modified 2020-10-12 05:15:50
 #  File has not been updated.
 
@@ -1290,7 +1297,6 @@ kernel: prepare
 #  recipe to execute (from 'Makefile', line 1784):
 	$(Q)$(MAKE) $(build)=$@ \
 	single-build=$(if $(filter-out $@/, $(filter $@/%, $(KBUILD_SINGLE_TARGETS))),1) \
- 
 	need-builtin=1 need-modorder=1
 
 sound: prepare
@@ -1317,6 +1323,7 @@ certs: prepare
 
 __all: all
 #  Phony target (prerequisite of .PHONY).
+ 
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
 #  File does not exist.
@@ -1372,6 +1379,7 @@ vmlinuxclean:
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1485):
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/link-vmlinux.sh clean
+ 
 	$(Q)$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) clean)
 
 sound/built-in.a: descend
@@ -1385,7 +1393,6 @@ sound/built-in.a: descend
 # Not a target:
 scripts/Makefile.extrawarn:
 #  Implicit rule search has been done.
- 
 #  Last modified 2020-10-12 05:15:50
 #  File has been updated.
 #  Successfully updated.
@@ -1416,6 +1423,7 @@ arch/x86: prepare
 #  recipe to execute (from 'Makefile', line 1784):
 	$(Q)$(MAKE) $(build)=$@ \
 	single-build=$(if $(filter-out $@/, $(filter $@/%, $(KBUILD_SINGLE_TARGETS))),1) \
+ 
 	need-builtin=1 need-modorder=1
 
 epubdocs:
@@ -1469,6 +1477,7 @@ asm-generic: uapi-asm-generic
 #  recipe to execute (from 'Makefile', line 1208):
 	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/asm \
 	generic=include/asm-generic
+ 
 
 kselftest-merge:
 #  Phony target (prerequisite of .PHONY).
@@ -1495,7 +1504,6 @@ arch/x86/kernel/head64.o: descend
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
- 
 	
 
 crypto: prepare
@@ -1526,6 +1534,7 @@ arch/x86/kernel/platform-quirks.o: descend
 	
 
 cscope: FORCE
+ 
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
 #  Modification time never checked.
@@ -1578,6 +1587,7 @@ _clean_arch/x86/math-emu:
 #  recipe to execute (from 'Makefile', line 1791):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
 
+ 
 xmldocs:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
@@ -1593,7 +1603,6 @@ security/modules.order: descend
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
- 
 	
 
 prepare-objtool:
@@ -1629,6 +1638,7 @@ prepare-objtool:
 # automatic
 # ? := 
 # variable set hash-table stats:
+ 
 # Load=9/32=28%, Rehash=0, Collisions=24/68=35%
 #  recipe to execute (from 'Makefile', line 695):
 	@echo >&2 '***'
@@ -1692,8 +1702,8 @@ help:
 	@echo  'Kernel selftest:'
 	@echo  '  kselftest         - Build and run kernel selftest'
 	@echo  '                      Build, install, and boot kernel before'
-	@echo  '                      running kselftest on it'
  
+	@echo  '                      running kselftest on it'
 	@echo  '                      Run as root for full coverage'
 	@echo  '  kselftest-all     - Build kernel selftest'
 	@echo  '  kselftest-install - Build and install kernel selftest'
@@ -1764,6 +1774,7 @@ archprepare: checkbin outputmakefile archheaders archscripts scripts include/con
 #  File is an intermediate prerequisite.
 #  File does not exist.
 #  File has not been updated.
+ 
 
 usr/built-in.a: descend
 #  Implicit rule search has not been done.
@@ -1791,7 +1802,6 @@ include/config/kernel.release: FORCE
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1175):
- 
 	$(call filechk,kernel.release)
 
 kernelversion:
@@ -1839,6 +1849,7 @@ checkstack:
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1862):
 	$(OBJDUMP) -d vmlinux $$(find . -name '*.ko') | \
+ 
 	$(PERL) $(srctree)/scripts/checkstack.pl $(CHECKSTACK_ARCH)
 
 archclean:
@@ -1887,9 +1898,9 @@ arch/x86/Makefile:
 _clean_virt:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
+ 
 #  File is an intermediate prerequisite.
 #  File does not exist.
- 
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1791):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
@@ -1945,6 +1956,7 @@ headerdep:
 #  recipe to execute (from 'Makefile', line 1260):
 	$(Q)find $(srctree)/include/ -name '*.h' | xargs --max-args 1 \
 	$(srctree)/scripts/headerdep.pl -I$(srctree)/include
+ 
 
 mm/modules.order: descend
 #  Implicit rule search has not been done.
@@ -1986,7 +1998,6 @@ _clean_samples:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
- 
 #  File does not exist.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1791):
@@ -2026,6 +2037,7 @@ clean: _clean_Documentation _clean_arch/x86 _clean_arch/x86/lib _clean_arch/x86/
 		-o -name '*.c.[012]*.*' \
 		-o -name '*.ll' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
+ 
 
 security/built-in.a: descend
 #  Implicit rule search has not been done.
@@ -2082,7 +2094,6 @@ _clean_Documentation:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
- 
 #  File does not exist.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1791):
@@ -2094,6 +2105,7 @@ block/modules.order: descend
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
+ 
 	
 
 install:
@@ -2152,6 +2164,7 @@ init/built-in.a: descend
 uapi-asm-generic:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
+ 
 #  File is an intermediate prerequisite.
 #  File does not exist.
 #  File has not been updated.
@@ -2194,7 +2207,6 @@ arch/x86/lib/built-in.a: descend
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1168):
- 
 	
 
 help-boards:
@@ -2216,6 +2228,7 @@ _clean_lib:
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
 #  File does not exist.
+ 
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1791):
 	$(Q)$(MAKE) $(clean)=$(patsubst _clean_%,%,$@)
@@ -2287,11 +2300,11 @@ coccicheck:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
 #  File is an intermediate prerequisite.
+ 
 #  File does not exist.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1842):
 	$(Q)$(BASH) $(srctree)/scripts/$@
- 
 
 headers_install: headers
 #  Phony target (prerequisite of .PHONY).
@@ -2335,6 +2348,7 @@ includecheck:
 # Not a target:
 scripts/Kbuild.include:
 #  Implicit rule search has not been done.
+ 
 #  Last modified 2020-10-12 05:15:50
 #  File has not been updated.
 
@@ -2383,12 +2397,12 @@ _clean_ipc:
 
 tools/: FORCE
 #  Implicit rule search has not been done.
- 
 #  File is an intermediate prerequisite.
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 1881):
 	$(Q)mkdir -p $(objtree)/tools
+ 
 	$(Q)$(MAKE) LDFLAGS= MAKEFLAGS="$(tools_silent) $(filter --j% -j,$(MAKEFLAGS))" O=$(abspath $(objtree)) subdir=tools -C $(srctree)/tools/
 
 include/config/auto.conf.cmd: .config
@@ -2458,10 +2472,10 @@ export_report:
 # Not a target:
 scripts/subarch.include:
 #  Implicit rule search has not been done.
+ 
 #  Last modified 2020-10-12 05:15:50
 #  File has not been updated.
 
- 
 block: prepare
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
@@ -2522,6 +2536,7 @@ archscripts: scripts_basic
 
 # No 'vpath' search paths.
 
+ 
 # No general ('VPATH' variable) search path.
 
 # strcache buffers: 1 (0) / strings = 206 / storage = 2879 B / avg = 13 B
@@ -2530,6 +2545,6 @@ archscripts: scripts_basic
 # strcache performance: lookups = 640 / hit rate = 67%
 # hash-table stats:
 # Load=206/8192=3%, Rehash=0, Collisions=2/640=0%
-# Finished Make data base on Wed Jul  6 17:45:19 2022
+# Finished Make data base on Tue Jul 12 13:58:12 2022
 
  

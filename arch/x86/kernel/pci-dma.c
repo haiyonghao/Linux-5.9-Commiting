@@ -123,6 +123,7 @@ static int __init pci_iommu_init(void)
 {
 	struct iommu_table_entry *p;
 
+	/*Ewan: on intel platform, this will call intel_iommu_init.*/
 	x86_init.iommu.iommu_init();
 
 	for (p = __iommu_table; p < __iommu_table_end; p++) {

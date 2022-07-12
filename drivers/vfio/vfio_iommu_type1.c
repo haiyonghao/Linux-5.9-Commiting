@@ -173,6 +173,7 @@ static struct vfio_dma *vfio_find_dma(struct vfio_iommu *iommu,
 	return NULL;
 }
 
+/* Ewan: find the right place in the rb_tree, to insert new node into.*/
 static void vfio_link_dma(struct vfio_iommu *iommu, struct vfio_dma *new)
 {
 	struct rb_node **link = &iommu->dma_list.rb_node, *parent = NULL;
@@ -1332,6 +1333,7 @@ static int vfio_dma_do_map(struct vfio_iommu *iommu,
 		goto out_unlock;
 	}
 
+	/* Ewan: we shouldn't map an existed dma_range.*/
 	if (vfio_find_dma(iommu, iova, size)) {
 		ret = -EEXIST;
 		goto out_unlock;
@@ -1342,6 +1344,9 @@ static int vfio_dma_do_map(struct vfio_iommu *iommu,
 		goto out_unlock;
 	}
 
+	/* Ewan: according test, this iova range will always be valid, the reason is
+	that, the valid range is extremly large, (0,4G-18M), (4G-17M, 512GB)
+	*/
 	if (!vfio_iommu_iova_dma_valid(iommu, iova, iova + size - 1)) {
 		ret = -EINVAL;
 		goto out_unlock;
@@ -1396,7 +1401,7 @@ static int vfio_dma_do_map(struct vfio_iommu *iommu,
 	if (!IS_IOMMU_CAP_DOMAIN_IN_CONTAINER(iommu))
 		dma->size = size;
 	else
-		ret = vfio_pin_map_dma(iommu, dma, size);
+		ret = vfio_pin_map_dma(iommu, dma, size); // pin and map.
 
 	if (!ret && iommu->dirty_page_tracking) {
 		ret = vfio_dma_bitmap_alloc(dma, pgsize);
@@ -1729,7 +1734,7 @@ static int vfio_iommu_attach_group(struct vfio_domain *domain,
 		return iommu_group_for_each_dev(group->iommu_group,
 						domain->domain,
 						vfio_mdev_attach_domain);
-	else
+	else // Ewan: call api in /drivers/iommu/iommu.c:iommu_attach_group.
 		return iommu_attach_group(domain->domain, group->iommu_group);
 }
 
@@ -1782,6 +1787,12 @@ static int vfio_mdev_iommu_device(struct device *dev, void *data)
 static int vfio_iommu_iova_insert(struct list_head *head,
 				  dma_addr_t start, dma_addr_t end)
 {
+	/*Ewan: this function only implements a insertion to head,
+		extra check will be done in vfio_iommu_aper_conflict.
+
+		next lines codes: new a vfio_iova region, and insert this into
+		head---typically a iova_copy.
+	*/
 	struct vfio_iova *region;
 
 	region = kmalloc(sizeof(*region), GFP_KERNEL);
@@ -1963,6 +1974,14 @@ static void vfio_iommu_iova_free(struct list_head *iova)
 	}
 }
 
+/*Ewan: get an iova copy from iommu->iova_list, this copy
+		is also a list, every element is a iova window, which
+		has start and end.
+
+		In linux-5.9, the iommu->iova_list here is an empty
+		list, so the list_for_each_entry will not be executes
+		on first running here.
+*/
 static int vfio_iommu_iova_get_copy(struct vfio_iommu *iommu,
 				    struct list_head *iova_copy)
 {
@@ -2073,6 +2092,12 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
 		bus = iommu_device->bus;
 	}
 
+	/* Ewan: on intel platform, this will call 
+		iommu_domain_alloc
+		=> __iommu_domain_alloc
+			=> bus->iommu_ops_domain_alloc
+			=> intel_iommu_domain_alloc
+	*/
 	domain->domain = iommu_domain_alloc(bus);
 	if (!domain->domain) {
 		ret = -EIO;
@@ -2101,6 +2126,7 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
 		goto out_detach;
 	}
 
+	// get reserved memory Reporting Register setted reserved memory
 	ret = iommu_get_group_resv_regions(iommu_group, &group_resv_regions);
 	if (ret)
 		goto out_detach;
@@ -2119,11 +2145,14 @@ static int vfio_iommu_type1_attach_group(void *iommu_data,
 	if (ret)
 		goto out_detach;
 
+	// Ewan: till here, iova_copy is a empty list, we just insert (0,512GB)
+	// 		to iova_copy
 	ret = vfio_iommu_aper_resize(&iova_copy, geo.aperture_start,
 				     geo.aperture_end);
 	if (ret)
 		goto out_detach;
 
+	// Ewan: exlcude (0xFEE0_0000-0xFEF0000) range from (0,512GB)
 	ret = vfio_iommu_resv_exclude(&iova_copy, &group_resv_regions);
 	if (ret)
 		goto out_detach;
@@ -2451,7 +2480,7 @@ static void *vfio_iommu_type1_open(unsigned long arg)
 	INIT_LIST_HEAD(&iommu->domain_list);
 	INIT_LIST_HEAD(&iommu->iova_list);
 	iommu->dma_list = RB_ROOT;
-	iommu->dma_avail = dma_entry_limit;
+	iommu->dma_avail = dma_entry_limit; // 64K 
 	mutex_init(&iommu->lock);
 	BLOCKING_INIT_NOTIFIER_HEAD(&iommu->notifier);
 

@@ -5098,6 +5098,8 @@ static struct iommu_domain *intel_iommu_domain_alloc(unsigned type)
 		domain_update_iommu_cap(dmar_domain);
 
 		domain = &dmar_domain->domain;
+
+		/* Ewan: normally, the geometry start from 0x0 and end in 512GB*/
 		domain->geometry.aperture_start = 0;
 		domain->geometry.aperture_end   =
 				__DOMAIN_MAX_ADDR(dmar_domain->gaw);
