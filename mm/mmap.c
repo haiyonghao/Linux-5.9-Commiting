@@ -2265,7 +2265,8 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 	vma = vmacache_find(mm, addr);
 	if (likely(vma))
 		return vma;
-
+		
+	// Ewan: find a vma, whose end > addr, and start < addr.
 	rb_node = mm->mm_rb.rb_node;
 
 	while (rb_node) {

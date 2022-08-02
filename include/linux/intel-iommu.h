@@ -681,6 +681,9 @@ static inline bool dma_pte_superpage(struct dma_pte *pte)
 	return (pte->val & DMA_PTE_LARGE_PAGE);
 }
 
+// Ewan: page table page used in VTD is 4K, so we just need to
+// check whether the pfn in a pte is 4k aligned, to ensure whether
+// the pte is the first pte in a page table page.
 static inline int first_pte_in_page(struct dma_pte *pte)
 {
 	return !((unsigned long)pte & ~VTD_PAGE_MASK);

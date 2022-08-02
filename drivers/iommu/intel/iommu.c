@@ -2252,10 +2252,14 @@ static inline unsigned long aligned_nrpages(unsigned long host_addr,
 					    size_t size)
 {
 	host_addr &= ~PAGE_MASK;
+	// Ewan: PAGE_ALIGN(addr): to align the pointer to the (next) page boundary
 	return PAGE_ALIGN(host_addr + size) >> VTD_PAGE_SHIFT;
 }
 
-/* Return largest possible superpage level for a given mapping */
+/* Return largest possible superpage level for a given mapping 
+ Ewan: 3 - 1G
+ 	   2 - 2M
+*/
 static inline int hardware_largepage_caps(struct dmar_domain *domain,
 					  unsigned long iov_pfn,
 					  unsigned long phy_pfn,
@@ -2352,6 +2356,10 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 		}
 		/* We don't need lock here, nobody else
 		 * touches the iova range
+
+		 Ewan: if original pte has value, there will be a problem.
+		 	   if orignal pte is empty, good.
+
 		 */
 		tmp = cmpxchg64_local(&pte->val, 0ULL, pteval);
 		if (tmp) {
@@ -2365,6 +2373,10 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 			WARN_ON(1);
 		}
 
+		// Ewan:
+		// 4K page can map 1 pfn page
+		// 2M page can map 512 pfn pages
+		// 1G page can map 512*512 pages
 		lvl_pages = lvl_to_nr_pages(largepage_lvl);
 
 		BUG_ON(nr_pages < lvl_pages);
@@ -2373,6 +2385,8 @@ static int __domain_mapping(struct dmar_domain *domain, unsigned long iov_pfn,
 		nr_pages -= lvl_pages;
 		iov_pfn += lvl_pages;
 		phys_pfn += lvl_pages;
+		// construct next PFN
+		// next PFN in pte = (PFN in pte) + (page_number * page_size)
 		pteval += lvl_pages * VTD_PAGE_SIZE;
 		sg_res -= lvl_pages;
 
@@ -5546,6 +5560,9 @@ static int intel_iommu_map(struct iommu_domain *domain,
 		prot |= DMA_PTE_SNP;
 
 	max_addr = iova + size;
+	// Ewan: if the iova range larger than domain's current max mapped addr,
+	// try to enlarge domain's current max mapped addr to current_max + 
+	// size of iova range
 	if (dmar_domain->max_addr < max_addr) {
 		u64 end;
 
@@ -5560,7 +5577,8 @@ static int intel_iommu_map(struct iommu_domain *domain,
 		dmar_domain->max_addr = max_addr;
 	}
 	/* Round up size to next multiple of PAGE_SIZE, if it and
-	   the low bits of hpa would take us onto the next page */
+	   the low bits of hpa would take us onto the next page 
+	   after process, size becomes the VTD page number*/
 	size = aligned_nrpages(hpa, size);
 	ret = domain_pfn_mapping(dmar_domain, iova >> VTD_PAGE_SHIFT,
 				 hpa >> VTD_PAGE_SHIFT, size, prot);

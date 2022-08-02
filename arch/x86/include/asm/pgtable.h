@@ -941,7 +941,7 @@ static inline int pgd_present(pgd_t pgd)
 		return 1;
 	return pgd_flags(pgd) & _PAGE_PRESENT;
 }
-
+// Ewan: return virtual addr of PDPT
 static inline unsigned long pgd_page_vaddr(pgd_t pgd)
 {
 	return (unsigned long)__va((unsigned long)pgd_val(pgd) & PTE_PFN_MASK);
@@ -954,6 +954,7 @@ static inline unsigned long pgd_page_vaddr(pgd_t pgd)
 #define pgd_page(pgd)	pfn_to_page(pgd_pfn(pgd))
 
 /* to find an entry in a page-table-directory. */
+// Ewan: return virtual addr of PDPTE.
 static inline p4d_t *p4d_offset(pgd_t *pgd, unsigned long address)
 {
 	if (!pgtable_l5_enabled())

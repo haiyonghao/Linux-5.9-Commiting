@@ -6359,6 +6359,9 @@ static void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	    SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES))
 		return;
 	// 建立GPA(0xFEE0_0000)到HVA(page)的映射.
+	// Ewan: there is a memslot backend of apic page, so gfn_to_page 
+	// will find the memslot and trans gfn to a real page on host,
+	// then write hpa of the page to APIC_ACCESS_ADDR.
 	page = gfn_to_page(vcpu->kvm, APIC_DEFAULT_PHYS_BASE >> PAGE_SHIFT);
 	if (is_error_page(page))
 		return;

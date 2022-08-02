@@ -1543,6 +1543,7 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 		if (pages) {
 			pages[i] = virt_to_page(start);
 			if (pages[i])
+				// Ewan: increment page->_refcount by 1.
 				get_page(pages[i]);
 		}
 		if (vmas)

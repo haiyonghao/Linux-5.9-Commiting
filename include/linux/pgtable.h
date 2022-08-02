@@ -63,6 +63,10 @@ static inline unsigned long pud_index(unsigned long address)
 
 #ifndef pgd_index
 /* Must be a compile-time constant, so implement it as a macro */
+/* Ewan: PML4, aka pgd contains bit39-bit47, so pgd_index(a) means 
+	(a >> 39) & 0x1FF, get 9 bits since bit 39 as pgd_index, which will
+	be used to index in PML4(mm->pgd), to get the pgde/pml4e. 
+*/ 
 #define pgd_index(a)  (((a) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1))
 #endif
 
@@ -84,7 +88,9 @@ static inline pte_t *pte_offset_kernel(pmd_t *pmd, unsigned long address)
 #define pte_unmap(pte) ((void)(pte))	/* NOP */
 #endif
 
-/* Find an entry in the second-level page table.. */
+/* Find an entry in the second-level page table.. 
+Ewan: return vaddr of PTE
+*/
 #ifndef pmd_offset
 static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
 {

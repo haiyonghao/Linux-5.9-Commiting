@@ -6,13 +6,9 @@ make: Entering directory '/home/ewan/Workspace/github/Linux-5.9-reading'
 *** Configuration file ".config" not found!
 
 ***
-
 *** Please run some configurator (e.g. "make oldconfig" or
-
 *** "make menuconfig" or "make xconfig").
-
 ***
-
 Makefile:692: include/config/auto.conf.cmd: No such file or directory
 make: *** [Makefile:701: .config] Error 1
 make: Failed to remake makefile 'include/config/auto.conf.cmd'.
@@ -21,7 +17,6 @@ make: Failed to remake makefile 'include/config/auto.conf'.
 make -f ./scripts/Makefile.build obj=arch/x86/entry/syscalls all
  
 set -e;  echo '  SYSTBL  arch/x86/include/generated/asm/syscalls_32.h'; sh './arch/x86/entry/syscalls/syscalltbl.sh' arch/x86/entry/syscalls/syscall_32.tbl arch/x86/include/generated/asm/syscalls_32.h; printf '%s\n' 'cmd_arch/x86/include/generated/asm/syscalls_32.h := sh '\''./arch/x86/entry/syscalls/syscalltbl.sh'\'' arch/x86/entry/syscalls/syscall_32.tbl arch/x86/include/generated/asm/syscalls_32.h' > arch/x86/include/generated/asm/.syscalls_32.h.cmd
- 
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_32.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_32.tbl' 'arch/x86/include/generated/uapi/asm/unistd_32.h' 'i386' '' ''; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_32.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_32.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_32.h'\'' '\''i386'\'' '\'''\'' '\'''\''' > arch/x86/include/generated/uapi/asm/.unistd_32.h.cmd
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_64.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_64.tbl' 'arch/x86/include/generated/uapi/asm/unistd_64.h' 'common,64' '' ''; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_64.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_64.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_64.h'\'' '\''common,64'\'' '\'''\'' '\'''\''' > arch/x86/include/generated/uapi/asm/.unistd_64.h.cmd
 set -e;  echo '  SYSHDR  arch/x86/include/generated/uapi/asm/unistd_x32.h'; sh './arch/x86/entry/syscalls/syscallhdr.sh' 'arch/x86/entry/syscalls/syscall_64.tbl' 'arch/x86/include/generated/uapi/asm/unistd_x32.h' 'common,x32' '' '__X32_SYSCALL_BIT'; printf '%s\n' 'cmd_arch/x86/include/generated/uapi/asm/unistd_x32.h := sh '\''./arch/x86/entry/syscalls/syscallhdr.sh'\'' '\''arch/x86/entry/syscalls/syscall_64.tbl'\'' '\''arch/x86/include/generated/uapi/asm/unistd_x32.h'\'' '\''common,x32'\'' '\'''\'' '\''__X32_SYSCALL_BIT'\''' > arch/x86/include/generated/uapi/asm/.unistd_x32.h.cmd
@@ -30,16 +25,15 @@ make -f ./scripts/Makefile.build obj=scripts/basic
  
 set -e;  echo '  HOSTCC  scripts/basic/fixdep'; gcc -Wp,-MMD,scripts/basic/.fixdep.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89         -o scripts/basic/fixdep scripts/basic/fixdep.c   ; scripts/basic/fixdep scripts/basic/.fixdep.d scripts/basic/fixdep 'gcc -Wp,-MMD,scripts/basic/.fixdep.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89         -o scripts/basic/fixdep scripts/basic/fixdep.c   ' > scripts/basic/.fixdep.cmd; rm -f scripts/basic/.fixdep.d
 :
- 
 rm -f .tmp_quiet_recordmcount
 make -f ./scripts/Makefile.build obj=arch/x86/tools relocs
  
 set -e;  echo '  HOSTCC  arch/x86/tools/relocs_32.o'; gcc -Wp,-MMD,arch/x86/tools/.relocs_32.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_32.o arch/x86/tools/relocs_32.c; scripts/basic/fixdep arch/x86/tools/.relocs_32.o.d arch/x86/tools/relocs_32.o 'gcc -Wp,-MMD,arch/x86/tools/.relocs_32.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_32.o arch/x86/tools/relocs_32.c' > arch/x86/tools/.relocs_32.o.cmd; rm -f arch/x86/tools/.relocs_32.o.d
+ 
 set -e;  echo '  HOSTCC  arch/x86/tools/relocs_64.o'; gcc -Wp,-MMD,arch/x86/tools/.relocs_64.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_64.o arch/x86/tools/relocs_64.c; scripts/basic/fixdep arch/x86/tools/.relocs_64.o.d arch/x86/tools/relocs_64.o 'gcc -Wp,-MMD,arch/x86/tools/.relocs_64.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_64.o arch/x86/tools/relocs_64.c' > arch/x86/tools/.relocs_64.o.cmd; rm -f arch/x86/tools/.relocs_64.o.d
 set -e;  echo '  HOSTCC  arch/x86/tools/relocs_common.o'; gcc -Wp,-MMD,arch/x86/tools/.relocs_common.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_common.o arch/x86/tools/relocs_common.c; scripts/basic/fixdep arch/x86/tools/.relocs_common.o.d arch/x86/tools/relocs_common.o 'gcc -Wp,-MMD,arch/x86/tools/.relocs_common.o.d -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -std=gnu89     -I./tools/include  -c -o arch/x86/tools/relocs_common.o arch/x86/tools/relocs_common.c' > arch/x86/tools/.relocs_common.o.cmd; rm -f arch/x86/tools/.relocs_common.o.d
 set -e;  echo '  HOSTLD  arch/x86/tools/relocs'; gcc   -o arch/x86/tools/relocs arch/x86/tools/relocs_32.o arch/x86/tools/relocs_64.o arch/x86/tools/relocs_common.o   ; printf '%s\n' 'cmd_arch/x86/tools/relocs := gcc   -o arch/x86/tools/relocs arch/x86/tools/relocs_32.o arch/x86/tools/relocs_64.o arch/x86/tools/relocs_common.o   ' > arch/x86/tools/.relocs.cmd
 :
- 
 make -f ./scripts/Makefile.build obj=scripts/dtc
  
 :
