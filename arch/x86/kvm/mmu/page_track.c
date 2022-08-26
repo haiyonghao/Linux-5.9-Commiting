@@ -28,6 +28,7 @@ void kvm_page_track_free_memslot(struct kvm_memory_slot *slot)
 	}
 }
 
+/* Ewan: alloc space for slot.arch.gfn_track*/
 int kvm_page_track_create_memslot(struct kvm_memory_slot *slot,
 				  unsigned long npages)
 {

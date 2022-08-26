@@ -2842,6 +2842,9 @@ void kvm_mmu_change_mmu_pages(struct kvm *kvm, unsigned long goal_nr_mmu_pages)
 {
 	spin_lock(&kvm->mmu_lock);
 
+	// Ewan: if used_mmu_pages bigger than goal_nr_mmu_pages, we
+	// should delete some(nr_used_mmu_pages - goal_nr_mmu_pages) old
+	// pages and calibrate the goal_nr_mmu_pages. 
 	if (kvm->arch.n_used_mmu_pages > goal_nr_mmu_pages) {
 		kvm_mmu_zap_oldest_mmu_pages(kvm, kvm->arch.n_used_mmu_pages -
 						  goal_nr_mmu_pages);
@@ -6183,6 +6186,7 @@ static void kvm_set_mmio_spte_mask(void)
 	else
 		mask = 0;
 
+	// Ewan: writeable and user accessable.
 	kvm_mmu_set_mmio_spte_mask(mask, ACC_WRITE_MASK | ACC_USER_MASK);
 }
 
@@ -6280,7 +6284,7 @@ out:
 }
 
 /*
- * Calculate mmu pages needed for kvm.
+ * Calculate mmu pages needed for kvm based on number of pages in all memslots.
  */
 unsigned long kvm_mmu_calculate_default_mmu_pages(struct kvm *kvm)
 {
@@ -6297,6 +6301,8 @@ unsigned long kvm_mmu_calculate_default_mmu_pages(struct kvm *kvm)
 			nr_pages += memslot->npages;
 	}
 
+	// Ewan: it seems like one mmu_page can store  1000 / KVM_PERMILLE_MMU_PAGES
+	// nr_pages
 	nr_mmu_pages = nr_pages * KVM_PERMILLE_MMU_PAGES / 1000;
 	nr_mmu_pages = max(nr_mmu_pages, KVM_MIN_ALLOC_MMU_PAGES);
 

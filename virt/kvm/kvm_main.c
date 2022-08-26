@@ -941,6 +941,8 @@ static int kvm_alloc_dirty_bitmap(struct kvm_memory_slot *memslot)
 /*
  * Delete a memslot by decrementing the number of used slots and shifting all
  * other entries in the array forward one spot.
+ * Ewan: in memslots array, from position the slot to be delete, all slot behind it
+ * move forward by 1 position, also update the index of these shifted slot to a new one.
  */
 static inline void kvm_memslot_delete(struct kvm_memslots *slots,
 				      struct kvm_memory_slot *memslot)
@@ -967,6 +969,8 @@ static inline void kvm_memslot_delete(struct kvm_memslots *slots,
 /*
  * "Insert" a new memslot by incrementing the number of used slots.  Returns
  * the new slot's initial index into the memslots array.
+ * 
+ * Ewan: return the old used_slots.
  */
 static inline int kvm_memslot_insert_back(struct kvm_memslots *slots)
 {
@@ -1100,6 +1104,8 @@ static void update_memslots(struct kvm_memslots *slots,
 	}
 }
 
+// Ewan: check whether user passed flags has extra flag,
+// if has, which means user setted the wrong flag.
 static int check_memory_region_flags(const struct kvm_userspace_memory_region *mem)
 {
 	u32 valid_flags = KVM_MEM_LOG_DIRTY_PAGES;
@@ -1143,6 +1149,9 @@ static struct kvm_memslots *install_new_memslots(struct kvm *kvm,
 	 */
 	gen += KVM_ADDRESS_SPACE_NUM;
 
+	/*Ewan: if gen achive its max value,invalidate all mmio sptes, and anyway
+		    kick all vcpus.
+	*/
 	kvm_arch_memslots_updated(kvm, gen);
 
 	slots->generation = gen;
@@ -1164,6 +1173,7 @@ static struct kvm_memslots *kvm_dup_memslots(struct kvm_memslots *old,
 	old_size = sizeof(struct kvm_memslots) +
 		   (sizeof(struct kvm_memory_slot) * old->used_slots);
 
+	// +1
 	if (change == KVM_MR_CREATE)
 		new_size = old_size + sizeof(struct kvm_memory_slot);
 	else
@@ -1186,6 +1196,7 @@ static int kvm_set_memslot(struct kvm *kvm,
 	struct kvm_memslots *slots;
 	int r;
 
+	// Ewan: duplicate old slots, and if change==create, duplicate old slots + 1.
 	slots = kvm_dup_memslots(__kvm_memslots(kvm, as_id), change);
 	if (!slots)
 		return -ENOMEM;
@@ -1203,6 +1214,9 @@ static int kvm_set_memslot(struct kvm *kvm,
 		 * newly installed memslots is the invalid flag, which will get
 		 * dropped by update_memslots anyway.  We'll also revert to the
 		 * old memslots if preparing the new memory region fails.
+		 
+		 * Ewan: assign new slots to kvm_memslots[asid] pointer, and return 
+		 * old pointer.
 		 */
 		slots = install_new_memslots(kvm, as_id, slots);
 
@@ -1212,6 +1226,8 @@ static int kvm_set_memslot(struct kvm *kvm,
 		 * validation of sp->gfn happens in:
 		 *	- gfn_to_hva (kvm_read_guest, gfn_to_pfn)
 		 *	- kvm_is_visible_gfn (mmu_check_root)
+
+		 * Ewan: calling flush notifer on `slot`
 		 */
 		kvm_arch_flush_shadow_memslot(kvm, slot);
 	}
@@ -1220,7 +1236,10 @@ static int kvm_set_memslot(struct kvm *kvm,
 	if (r)
 		goto out_slots;
 
+	// Ewan here.
 	update_memslots(slots, new, change);
+
+	// return old mem_slots.
 	slots = install_new_memslots(kvm, as_id, slots);
 
 	kvm_arch_commit_memory_region(kvm, mem, old, new, change);
@@ -1281,17 +1300,20 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	id = (u16)mem->slot;
 
 	/* General sanity checks */
-	if (mem->memory_size & (PAGE_SIZE - 1))
+	if (mem->memory_size & (PAGE_SIZE - 1)) // memory_size 4k aligned check
 		return -EINVAL;
-	if (mem->guest_phys_addr & (PAGE_SIZE - 1))
+	if (mem->guest_phys_addr & (PAGE_SIZE - 1)) // GPA 4k aligned check
 		return -EINVAL;
 	/* We can read the guest memory with __xxx_user() later on. */
 	if ((mem->userspace_addr & (PAGE_SIZE - 1)) ||
 	     !access_ok((void __user *)(unsigned long)mem->userspace_addr,
-			mem->memory_size))
+			mem->memory_size)) // HVA 4k aligned check, HVA accessable check
 		return -EINVAL;
+	// address space id check and slot id check
 	if (as_id >= KVM_ADDRESS_SPACE_NUM || id >= KVM_MEM_SLOTS_NUM)
 		return -EINVAL;
+	
+	// negative memory_size check
 	if (mem->guest_phys_addr + mem->memory_size < mem->guest_phys_addr)
 		return -EINVAL;
 
@@ -1302,10 +1324,10 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	 * to free its resources and for arch specific behavior.
 	 */
 	tmp = id_to_memslot(__kvm_memslots(kvm, as_id), id);
-	if (tmp) {
+	if (tmp) { // modify existing slot
 		old = *tmp;
 		tmp = NULL;
-	} else {
+	} else { // create a new slot
 		memset(&old, 0, sizeof(old));
 		old.id = id;
 	}
@@ -1322,7 +1344,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	if (new.npages > KVM_MEM_MAX_NR_PAGES)
 		return -EINVAL;
 
-	if (!old.npages) {
+	if (!old.npages) { // create a new slot
 		change = KVM_MR_CREATE;
 		new.dirty_bitmap = NULL;
 		memset(&new.arch, 0, sizeof(new.arch));

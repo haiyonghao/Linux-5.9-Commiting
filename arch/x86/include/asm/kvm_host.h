@@ -43,6 +43,7 @@
 #define KVM_USER_MEM_SLOTS 509
 /* memory slots that are not exposed to userspace */
 #define KVM_PRIVATE_MEM_SLOTS 3
+/* Ewan: 512 */
 #define KVM_MEM_SLOTS_NUM (KVM_USER_MEM_SLOTS + KVM_PRIVATE_MEM_SLOTS)
 
 #define KVM_HALT_POLL_NS_DEFAULT 200000
@@ -119,6 +120,10 @@
 #define KVM_HPAGE_MASK(x)	(~(KVM_HPAGE_SIZE(x) - 1))
 #define KVM_PAGES_PER_HPAGE(x)	(KVM_HPAGE_SIZE(x) / PAGE_SIZE)
 
+/* Ewan: get the index of gfn in the page based on base_gfn, page size if
+   dedicated in level, or we can say get the number of large pages between
+   gfn to base_gfn.
+*/
 static inline gfn_t gfn_to_index(gfn_t gfn, gfn_t base_gfn, int level)
 {
 	/* KVM_HPAGE_GFN_SHIFT(PG_LEVEL_4K) must be 0. */
@@ -795,8 +800,12 @@ struct kvm_lpage_info {
 };
 
 struct kvm_arch_memory_slot {
+	// indicate page size info, 0-4k, 1-2m,2-1G.
 	struct kvm_rmap_head *rmap[KVM_NR_PAGE_SIZES];
+	// indicate whether support large page or not, index 0 means 2M page,
+	// index 1 means 1G page.
 	struct kvm_lpage_info *lpage_info[KVM_NR_PAGE_SIZES - 1];
+	// used for page info tracking.
 	unsigned short *gfn_track[KVM_PAGE_TRACK_MAX];
 };
 

@@ -626,6 +626,9 @@ void kvm_get_kvm(struct kvm *kvm);
 void kvm_put_kvm(struct kvm *kvm);
 void kvm_put_kvm_no_destroy(struct kvm *kvm);
 
+/* Ewan: get the kvm->memslots[as_id], along with holding:
+ * kvm->srcu, kvm->slots_lock, and kvm->users_count==0
+ */
 static inline struct kvm_memslots *__kvm_memslots(struct kvm *kvm, int as_id)
 {
 	as_id = array_index_nospec(as_id, KVM_ADDRESS_SPACE_NUM);

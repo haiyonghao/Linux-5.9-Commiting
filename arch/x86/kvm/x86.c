@@ -10144,6 +10144,9 @@ void kvm_arch_free_memslot(struct kvm *kvm, struct kvm_memory_slot *slot)
 	kvm_page_track_free_memslot(slot);
 }
 
+/* Ewan: based on gfn_base and size infomation, record some large page supported
+ * info and track_pfn info in slot arch structure.
+ */
 static int kvm_alloc_memslot_metadata(struct kvm_memory_slot *slot,
 				      unsigned long npages)
 {
@@ -10156,10 +10159,14 @@ static int kvm_alloc_memslot_metadata(struct kvm_memory_slot *slot,
 	 */
 	memset(&slot->arch, 0, sizeof(slot->arch));
 
+	// Ewan: i will be 0,1,2.
 	for (i = 0; i < KVM_NR_PAGE_SIZES; ++i) {
 		struct kvm_lpage_info *linfo;
 		unsigned long ugfn;
 		int lpages;
+		// when level == 1, lpages is number of 4k pages
+		// when level == 2, lpages is number of 2M pages
+		// when level == 3, lpages is number of 1G pages
 		int level = i + 1;
 
 		lpages = gfn_to_index(slot->base_gfn + npages - 1,
@@ -10170,6 +10177,8 @@ static int kvm_alloc_memslot_metadata(struct kvm_memory_slot *slot,
 				 GFP_KERNEL_ACCOUNT);
 		if (!slot->arch.rmap[i])
 			goto out_free;
+		
+		// 4k pages only needs rmap
 		if (i == 0)
 			continue;
 
@@ -10177,8 +10186,13 @@ static int kvm_alloc_memslot_metadata(struct kvm_memory_slot *slot,
 		if (!linfo)
 			goto out_free;
 
+		// arch.lpage_info only has 2 pixel, pixel 0 means 2M page info,
+		// pixel 1 means 1G page info. 
 		slot->arch.lpage_info[i - 1] = linfo;
 
+		// check wether base_gfn aligned at boundary of 2M/1G page, to
+		// set linfo[pages] to indicate whether base_gfn and end_gfn 
+		//  support large page.
 		if (slot->base_gfn & (KVM_PAGES_PER_HPAGE(level) - 1))
 			linfo[0].disallow_lpage = 1;
 		if ((slot->base_gfn + npages) & (KVM_PAGES_PER_HPAGE(level) - 1))
@@ -10222,6 +10236,9 @@ void kvm_arch_memslots_updated(struct kvm *kvm, u64 gen)
 	/*
 	 * memslots->generation has been incremented.
 	 * mmio generation may have reached its maximum value.
+	 * 
+	 * Ewan: if memslots->generation reached its maximum value, we
+	 * need to zap all shadow page tables.
 	 */
 	kvm_mmu_invalidate_mmio_sptes(kvm, gen);
 
@@ -10241,6 +10258,7 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm,
 	return 0;
 }
 
+/* Ewan: operate on new slots pages' dirty logging.*/
 static void kvm_mmu_slot_apply_flags(struct kvm *kvm,
 				     struct kvm_memory_slot *old,
 				     struct kvm_memory_slot *new,
