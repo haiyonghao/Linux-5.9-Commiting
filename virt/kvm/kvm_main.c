@@ -1104,8 +1104,7 @@ static void update_memslots(struct kvm_memslots *slots,
 	}
 }
 
-// Ewan: check whether user passed flags has extra flag,
-// if has, which means user setted the wrong flag.
+// Ewan: check whether user passed flags has illegal flags set.
 static int check_memory_region_flags(const struct kvm_userspace_memory_region *mem)
 {
 	u32 valid_flags = KVM_MEM_LOG_DIRTY_PAGES;
@@ -1149,7 +1148,7 @@ static struct kvm_memslots *install_new_memslots(struct kvm *kvm,
 	 */
 	gen += KVM_ADDRESS_SPACE_NUM;
 
-	/*Ewan: if gen achive its max value,invalidate all mmio sptes, and anyway
+	/*Ewan: if gen achieve its max value,invalidate all mmio sptes, and anyway
 		    kick all vcpus.
 	*/
 	kvm_arch_memslots_updated(kvm, gen);
@@ -1227,7 +1226,7 @@ static int kvm_set_memslot(struct kvm *kvm,
 		 *	- gfn_to_hva (kvm_read_guest, gfn_to_pfn)
 		 *	- kvm_is_visible_gfn (mmu_check_root)
 
-		 * Ewan: calling flush notifer on `slot`
+		 * Ewan: calling flush notifer(kvm_mmu_invalidate_zap_pages_in_memslot) on `slot`
 		 */
 		kvm_arch_flush_shadow_memslot(kvm, slot);
 	}
