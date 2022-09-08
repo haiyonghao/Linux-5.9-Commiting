@@ -435,7 +435,11 @@ static inline int kvm_arch_vcpu_memslots_id(struct kvm_vcpu *vcpu)
  */
 struct kvm_memslots {
 	u64 generation;
-	/* The mapping table from slot id to the index in memslots[]. */
+	/* The mapping table from slot id to the index in memslots[]. 
+	   Ewan: because slot.id consist of 2 parts, as_id and slot id, so 
+	   we cannot make a linear mapping for id to index in memslots, so
+	   make a id_to_index array here for inlinear mapping.
+	 */
 	short id_to_index[KVM_MEM_SLOTS_NUM];
 	atomic_t lru_slot;
 	int used_slots;
