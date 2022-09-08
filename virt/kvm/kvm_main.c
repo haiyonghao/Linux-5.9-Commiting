@@ -1196,7 +1196,9 @@ static int kvm_set_memslot(struct kvm *kvm,
 	struct kvm_memslots *slots;
 	int r;
 
-	// Ewan: duplicate old slots, and if change==create, duplicate old slots + 1.
+	/* Ewan: duplicate old slots space for new slot, 
+	   and if change==create, duplicate old slots + 1.
+	 */
 	slots = kvm_dup_memslots(__kvm_memslots(kvm, as_id), change);
 	if (!slots)
 		return -ENOMEM;
@@ -1236,7 +1238,7 @@ static int kvm_set_memslot(struct kvm *kvm,
 	if (r)
 		goto out_slots;
 
-	// Ewan here.
+	// do real delete/create/move ops.
 	update_memslots(slots, new, change);
 
 	// return old mem_slots.
@@ -1371,6 +1373,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 		kvm_for_each_memslot(tmp, __kvm_memslots(kvm, as_id)) {
 			if (tmp->id == id)
 				continue;
+			// check if new slot in some old slot.
 			if (!((new.base_gfn + new.npages <= tmp->base_gfn) ||
 			      (new.base_gfn >= tmp->base_gfn + tmp->npages)))
 				return -EEXIST;

@@ -6302,7 +6302,7 @@ unsigned long kvm_mmu_calculate_default_mmu_pages(struct kvm *kvm)
 	}
 
 	// Ewan: it seems like one mmu_page can store  1000 / KVM_PERMILLE_MMU_PAGES
-	// nr_pages
+	// nr_pages, or we can say we prepare 1 mmu_page for every 50 real pages.
 	nr_mmu_pages = nr_pages * KVM_PERMILLE_MMU_PAGES / 1000;
 	nr_mmu_pages = max(nr_mmu_pages, KVM_MIN_ALLOC_MMU_PAGES);
 
