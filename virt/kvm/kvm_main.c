@@ -1372,7 +1372,7 @@ int __kvm_set_memory_region(struct kvm *kvm,
 		kvm_for_each_memslot(tmp, __kvm_memslots(kvm, as_id)) {
 			if (tmp->id == id)
 				continue;
-			// check if new slot in some old slot.
+			// check if new slot in other old slot.
 			if (!((new.base_gfn + new.npages <= tmp->base_gfn) ||
 			      (new.base_gfn >= tmp->base_gfn + tmp->npages)))
 				return -EEXIST;

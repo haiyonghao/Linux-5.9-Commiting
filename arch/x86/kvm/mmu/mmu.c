@@ -6158,6 +6158,10 @@ mmu_shrink_count(struct shrinker *shrink, struct shrink_control *sc)
 	return percpu_counter_read_positive(&kvm_total_used_mmu_pages);
 }
 
+/* .count_objects will return freeable items from cache. 
+   .scan_objects will scan and free items from cache, return
+   the freed objects during the scan.
+ */
 static struct shrinker mmu_shrinker = {
 	.count_objects = mmu_shrink_count,
 	.scan_objects = mmu_shrink_scan,
@@ -6263,12 +6267,17 @@ int kvm_mmu_module_init(void)
 	if (!pte_list_desc_cache)
 		goto out;
 
+	/* create a kmem_cache for kvm-mmu-page allocation. this kmem_cache
+	   is a slab memory pool,every kvm-mmu-page that kvm use will be allocted
+	   from this memory pool.
+	 */
 	mmu_page_header_cache = kmem_cache_create("kvm_mmu_page_header",
 						  sizeof(struct kvm_mmu_page),
 						  0, SLAB_ACCOUNT, NULL);
 	if (!mmu_page_header_cache)
 		goto out;
 
+	// register a global variable for slab to free kvm-mmu-pages.
 	if (percpu_counter_init(&kvm_total_used_mmu_pages, 0, GFP_KERNEL))
 		goto out;
 

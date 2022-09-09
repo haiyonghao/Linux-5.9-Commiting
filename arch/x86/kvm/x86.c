@@ -9603,7 +9603,7 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 
 	kvm_hv_vcpu_init(vcpu);
 
-	r = kvm_x86_ops.vcpu_create(vcpu);
+	r = kvm_x86_ops.vcpu_create(vcpu); // vmx_create_vcpu
 	if (r)
 		goto free_guest_fpu;
 
@@ -10054,12 +10054,14 @@ int __x86_set_memory_region(struct kvm *kvm, int id, gpa_t gpa, u32 size)
 
 	slot = id_to_memslot(slots, id);
 	if (size) {
-		if (slot && slot->npages)
+		if (slot && slot->npages) // slot should be empty before we set.
 			return -EEXIST;
 
 		/*
 		 * MAP_SHARED to prevent internal slot pages from being moved
 		 * by fork()/COW.
+		 *
+		 * allocate `size` bytes memory for hva.
 		 */
 		hva = vm_mmap(NULL, 0, size, PROT_READ | PROT_WRITE,
 			      MAP_SHARED | MAP_ANONYMOUS, 0);

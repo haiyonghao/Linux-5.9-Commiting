@@ -3636,15 +3636,23 @@ static int init_rmode_identity_map(struct kvm *kvm)
 		kvm_vmx->ept_identity_map_addr = VMX_EPT_IDENTITY_PAGETABLE_ADDR;
 	identity_map_pfn = kvm_vmx->ept_identity_map_addr >> PAGE_SHIFT;
 
+	/* construct a 4k size memslot, whose slot id is  IDENTITY_PAGETABLE_PRIVATE_MEMSLOT,
+	 * gpa is VMX_EPT_IDENTITY_PAGETABLE_ADDR, hva allocated from kernel, finally add 
+	 * the slot to global memslots[].
+	 */
 	r = __x86_set_memory_region(kvm, IDENTITY_PAGETABLE_PRIVATE_MEMSLOT,
 				    kvm_vmx->ept_identity_map_addr, PAGE_SIZE);
 	if (r < 0)
 		goto out;
 
+	/* write a zero-page into gfn(identity_map_pfn), and mark slot dirty bit.*/
 	r = kvm_clear_guest_page(kvm, identity_map_pfn, 0, PAGE_SIZE);
 	if (r < 0)
 		goto out;
-	/* Set up identity-mapping pagetable for EPT in real mode */
+	/* Set up identity-mapping pagetable for EPT in real mode 
+	 * this pagetable page consists of 1024 entry, every entry
+	 * points to a 4MB page.
+	 */
 	for (i = 0; i < PT32_ENT_PER_PAGE; i++) {
 		tmp = (i << 22) + (_PAGE_PRESENT | _PAGE_RW | _PAGE_USER |
 			_PAGE_ACCESSED | _PAGE_DIRTY | _PAGE_PSE);

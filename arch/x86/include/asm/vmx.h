@@ -516,6 +516,7 @@ static inline u8 vmx_eptp_page_walk_level(u64 eptp)
 #define VMX_EPT_MISCONFIG_WX_VALUE		(VMX_EPT_WRITABLE_MASK |       \
 						 VMX_EPT_EXECUTABLE_MASK)
 
+// 4G-272K.
 #define VMX_EPT_IDENTITY_PAGETABLE_ADDR		0xfffbc000ul
 
 struct vmx_msr_entry {
