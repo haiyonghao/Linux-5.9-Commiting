@@ -360,17 +360,49 @@ static int kvm_nested_vmexit_handler(struct trace_seq *s, struct tep_record *rec
 union kvm_mmu_page_role {
 	unsigned word;
 	struct {
-		unsigned level:4;
-		unsigned cr4_pae:1;
-		unsigned quadrant:2;
+		unsigned level:4; // page table page level
+		unsigned cr4_pae:1; // cr4.pae, 1 when gpte is 64-bit mode.
+		/* if cr4.pae is 0, means gpte is 32-bit mode, but spte is always 64bit,
+		   so we need use 4 spte to descript a gpte, quadrant indicates which spte
+		   of 4 spte.
+		 */
+		unsigned quadrant:2; 
+		
+		/* if this bit set, leaf sptes reachable from this page are for a linear range. 
+		   Examples include:
+		   1. real mode translation
+		   2. large guest pages backed by small host pages
+		   3. gpa->hpa translations when NPT/EPT is used.
+
+		   range size is determined by role.level(1-2M, 2-1G, 3-0.5TB, 4-256TB)
+		   if clear, this page corresponds to a guest page table denoted by the gfn field.
+		   */
 		unsigned direct:1;
+
+		/* Inherited guest access permissions in the form uwx(user-write-execute).  Note execute
+    	   permission is positive, not negative.
+    	 */
 		unsigned access:3;
+
+		/* indicate a page is invalid and shouldn't be use. if this page is a root page that
+		   a hardware register is pointing to it, it will be destroyed after hardware unpointing
+		   to it.
+		 */
 		unsigned invalid:1;
+
+		/* if the page is valid, nxe contains the value of efer.nxe. */
 		unsigned nxe:1;
+
+		/* if the page is valid, contains value of cr0.wp. */
 		unsigned cr0_wp:1;
+
+		/* cr4.smep && ! cr0.wp */
 		unsigned smep_and_not_wp:1;
+		/* cr4.smap && ! cr0.wp */
 		unsigned smap_and_not_wp:1;
 		unsigned pad_for_nice_hex_output:8;
+
+		/* if 1 the page is valid in SMM. */
 		unsigned smm:8;
 	};
 };

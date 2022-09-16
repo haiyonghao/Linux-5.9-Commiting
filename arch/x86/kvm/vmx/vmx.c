@@ -5376,15 +5376,17 @@ static int handle_ept_violation(struct kvm_vcpu *vcpu)
 	trace_kvm_page_fault(gpa, exit_qualification);
 
 	/* Is it a read fault? */
-	error_code = (exit_qualification & EPT_VIOLATION_ACC_READ)
+	error_code = (exit_qualification & EPT_VIOLATION_ACC_READ) // bit 0 => bit 2
 		     ? PFERR_USER_MASK : 0;
 	/* Is it a write fault? */
-	error_code |= (exit_qualification & EPT_VIOLATION_ACC_WRITE)
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_WRITE) // bit 1 => 1
 		      ? PFERR_WRITE_MASK : 0;
 	/* Is it a fetch fault? */
-	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR) // bit 2 => bit 4
 		      ? PFERR_FETCH_MASK : 0;
-	/* ept page table entry is present? */
+	/* ept page table entry is present? if one of the RWX is set in exit_qual, we
+	   think the ept entry is present.
+	 */
 	error_code |= (exit_qualification &
 		       (EPT_VIOLATION_READABLE | EPT_VIOLATION_WRITABLE |
 			EPT_VIOLATION_EXECUTABLE))

@@ -341,6 +341,10 @@ void kvm_reload_remote_mmus(struct kvm *kvm)
 }
 
 #ifdef KVM_ARCH_NR_OBJS_PER_MEMORY_CACHE
+
+/* if memory cache contains preallocted cache, we will alloc space from this cache,
+   else we will alloc space from host mmu.
+ */
 static inline void *mmu_memory_cache_alloc_obj(struct kvm_mmu_memory_cache *mc,
 					       gfp_t gfp_flags)
 {
@@ -352,6 +356,9 @@ static inline void *mmu_memory_cache_alloc_obj(struct kvm_mmu_memory_cache *mc,
 		return (void *)__get_free_page(gfp_flags);
 }
 
+/* if objs space left in the memory cache is not enough, we will alloc 
+   new objs space up to max space that this memory cache support.
+ */
 int kvm_mmu_topup_memory_cache(struct kvm_mmu_memory_cache *mc, int min)
 {
 	void *obj;
@@ -1743,6 +1750,7 @@ static bool memslot_is_readonly(struct kvm_memory_slot *slot)
 	return slot->flags & KVM_MEM_READONLY;
 }
 
+/* use slot.hva and offset of gfn to base_gfn to get corresponding gva of gfn. */
 static unsigned long __gfn_to_hva_many(struct kvm_memory_slot *slot, gfn_t gfn,
 				       gfn_t *nr_pages, bool write)
 {
@@ -1982,6 +1990,7 @@ static kvm_pfn_t hva_to_pfn(unsigned long addr, bool atomic, bool *async,
 	if (atomic)
 		return KVM_PFN_ERR_FAULT;
 
+	// get pfn of hva, only 1 page. 
 	npages = hva_to_pfn_slow(addr, async, write_fault, writable, &pfn);
 	if (npages == 1)
 		return pfn;
@@ -2026,6 +2035,7 @@ kvm_pfn_t __gfn_to_pfn_memslot(struct kvm_memory_slot *slot, gfn_t gfn,
 		return KVM_PFN_ERR_RO_FAULT;
 	}
 
+	// a valid hva should less than 0xffff880000000000
 	if (kvm_is_error_hva(addr)) {
 		if (writable)
 			*writable = false;

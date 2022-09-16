@@ -118,6 +118,10 @@
 #define KVM_HPAGE_SHIFT(x)	(PAGE_SHIFT + KVM_HPAGE_GFN_SHIFT(x))
 #define KVM_HPAGE_SIZE(x)	(1UL << KVM_HPAGE_SHIFT(x))
 #define KVM_HPAGE_MASK(x)	(~(KVM_HPAGE_SIZE(x) - 1))
+
+/* one 2M page can store 512 4k pages. 
+   one 1G page can store 256K 4k pages.
+ */
 #define KVM_PAGES_PER_HPAGE(x)	(KVM_HPAGE_SIZE(x) / PAGE_SIZE)
 
 /* Ewan: get the index of gfn in the page based on base_gfn, page size if
@@ -594,9 +598,17 @@ struct kvm_vcpu_arch {
 	 */
 	struct kvm_mmu *walk_mmu;
 
+	/* cache for pte_list_desc, which is the node of `reverse mapping link 
+	   list', the node is allocted in mmu_set_spte => rmap_add => 
+	   pte_list_add.
+	 */
 	struct kvm_mmu_memory_cache mmu_pte_list_desc_cache;
+
+	/* cache for mmu_shadow_page, which is the final page of kvm_mmu. */
 	struct kvm_mmu_memory_cache mmu_shadow_page_cache;
+	/* cache for mmu_gfn_array, which contains gfn info. */
 	struct kvm_mmu_memory_cache mmu_gfn_array_cache;
+	/* cache for mmu_page_header, which is the page table page. */
 	struct kvm_mmu_memory_cache mmu_page_header_cache;
 
 	/*

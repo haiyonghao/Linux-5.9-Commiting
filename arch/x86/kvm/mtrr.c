@@ -692,6 +692,8 @@ u8 kvm_mtrr_get_guest_memory_type(struct kvm_vcpu *vcpu, gfn_t gfn)
 }
 EXPORT_SYMBOL_GPL(kvm_mtrr_get_guest_memory_type);
 
+
+/* return wether the range indicated by parameters passed in has same cache type. */
 bool kvm_mtrr_check_gfn_range_consistency(struct kvm_vcpu *vcpu, gfn_t gfn,
 					  int page_num)
 {
@@ -702,6 +704,7 @@ bool kvm_mtrr_check_gfn_range_consistency(struct kvm_vcpu *vcpu, gfn_t gfn,
 
 	start = gfn_to_gpa(gfn);
 	end = gfn_to_gpa(gfn + page_num);
+	// query whether gfn start and end have same  cache type.
 	mtrr_for_each_mem_type(&iter, mtrr_state, start, end) {
 		if (type == -1) {
 			type = iter.mem_type;
@@ -712,12 +715,15 @@ bool kvm_mtrr_check_gfn_range_consistency(struct kvm_vcpu *vcpu, gfn_t gfn,
 			return false;
 	}
 
+	// all mtrr_state from start to end is disabled.
 	if (iter.mtrr_disabled)
 		return true;
 
+	// partial_map: only part of start to end has same attr.
 	if (!iter.partial_map)
 		return true;
 
+	// there's no state in mtrr_state.
 	if (type == -1)
 		return true;
 

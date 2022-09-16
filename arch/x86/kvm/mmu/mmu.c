@@ -136,9 +136,15 @@ module_param(dbg, bool, 0644);
 
 #define PT64_LEVEL_BITS 9
 
+/* level: page level
+   1- page table whose entry points to 4k page.
+   2- page table whose entry points to 2M page or next page table.
+   3- page table whose entry points to 1G page or next page table.
+ */
 #define PT64_LEVEL_SHIFT(level) \
 		(PAGE_SHIFT + (level - 1) * PT64_LEVEL_BITS)
 
+/* get the entry index in current level from the address. */
 #define PT64_INDEX(address, level)\
 	(((address) >> PT64_LEVEL_SHIFT(level)) & ((1 << PT64_LEVEL_BITS) - 1))
 
@@ -217,10 +223,22 @@ struct pte_list_desc {
 };
 
 struct kvm_shadow_walk_iterator {
+	// the gpa that iterator will use.
 	u64 addr;
+	// shadow page table page addr of current level.
 	hpa_t shadow_addr;
+
+	// address of shadow page table entry in current level.
 	u64 *sptep;
+
+	/* page table level.
+	   1- page table whose entry points to 4K data page.
+	   2- page table whose entry points to level1 page or 2M data page.
+	   3- page table whose entry points to level2 page or 1G data page.
+	 */
 	int level;
+
+	// index of entry in current level page table.
 	unsigned index;
 };
 
@@ -637,6 +655,7 @@ static int is_last_spte(u64 pte, int level)
 {
 	if (level == PG_LEVEL_4K)
 		return 1;
+	// PTE.PS == 1.
 	if (is_large_pte(pte))
 		return 1;
 	return 0;
@@ -971,6 +990,7 @@ static void mmu_spte_clear_no_track(u64 *sptep)
 	__update_clear_spte_fast(sptep, 0ull);
 }
 
+/* get spte content from sptep. */
 static u64 mmu_spte_get_lockless(u64 *sptep)
 {
 	return __get_spte_lockless(sptep);
@@ -2507,6 +2527,9 @@ out:
 	return sp;
 }
 
+/* according to vcpu->arch.mmu->root_level and vcpu->arch.mmu->shadow_root_level, set the 
+   current level and root addr.
+ */
 static void shadow_walk_init_using_root(struct kvm_shadow_walk_iterator *iterator,
 					struct kvm_vcpu *vcpu, hpa_t root,
 					u64 addr)
@@ -2515,24 +2538,26 @@ static void shadow_walk_init_using_root(struct kvm_shadow_walk_iterator *iterato
 	iterator->shadow_addr = root;
 	iterator->level = vcpu->arch.mmu->shadow_root_level;
 
+	// shadow_root_level is different from root_level, we need to --iterator.level.
 	if (iterator->level == PT64_ROOT_4LEVEL &&
 	    vcpu->arch.mmu->root_level < PT64_ROOT_4LEVEL &&
 	    !vcpu->arch.mmu->direct_map)
 		--iterator->level;
 
-	if (iterator->level == PT32E_ROOT_LEVEL) {
+	if (iterator->level == PT32E_ROOT_LEVEL) { // pae mode.
 		/*
 		 * prev_root is currently only used for 64-bit hosts. So only
 		 * the active root_hpa is valid here.
 		 */
 		BUG_ON(root != vcpu->arch.mmu->root_hpa);
 
+		// get the PDPTE addr from PDPTE[4]
 		iterator->shadow_addr
 			= vcpu->arch.mmu->pae_root[(addr >> 30) & 3];
 		iterator->shadow_addr &= PT64_BASE_ADDR_MASK;
 		--iterator->level;
 		if (!iterator->shadow_addr)
-			iterator->level = 0;
+			iterator->level = 0; // return back to real mode.
 	}
 }
 
@@ -2547,12 +2572,13 @@ static bool shadow_walk_okay(struct kvm_shadow_walk_iterator *iterator)
 {
 	if (iterator->level < PG_LEVEL_4K)
 		return false;
-
+	// get the entry index in current level from addr.
 	iterator->index = SHADOW_PT_INDEX(iterator->addr, iterator->level);
 	iterator->sptep	= ((u64 *)__va(iterator->shadow_addr)) + iterator->index;
 	return true;
 }
 
+/* set iterator->shadow_addr as next level page table address, and level-- */
 static void __shadow_walk_next(struct kvm_shadow_walk_iterator *iterator,
 			       u64 spte)
 {
@@ -3397,6 +3423,9 @@ static bool handle_abnormal_pfn(struct kvm_vcpu *vcpu, gva_t gva, gfn_t gfn,
 	return false;
 }
 
+/* for tdp paging, except for access RESERVED bit set page(MMIO), and NX violation, other
+   all cases can be fast.
+ */
 static bool page_fault_can_be_fast(u32 error_code)
 {
 	/*
@@ -3406,7 +3435,9 @@ static bool page_fault_can_be_fast(u32 error_code)
 	if (unlikely(error_code & PFERR_RSVD_MASK))
 		return false;
 
-	/* See if the page fault is due to an NX violation */
+	/* See if the page fault is due to an NX violation 
+	 * Fetch and EPT entry present, the only reason is NX set.
+	 */
 	if (unlikely(((error_code & (PFERR_FETCH_MASK | PFERR_PRESENT_MASK))
 		      == (PFERR_FETCH_MASK | PFERR_PRESENT_MASK))))
 		return false;
@@ -3453,10 +3484,17 @@ fast_pf_fix_direct_spte(struct kvm_vcpu *vcpu, struct kvm_mmu_page *sp,
 	 * so non-PML cases won't be impacted.
 	 *
 	 * Compare with set_spte where instead shadow_dirty_mask is set.
+	 *
+	 * cmpxchg64 here must return value that sptep points, so if the condition
+	 * in the if() do not meet, someone else may modified the spte before we 
+	 * modify it.
 	 */
 	if (cmpxchg64(sptep, old_spte, new_spte) != old_spte)
 		return false;
 
+
+	// if write permission change, we need to modify gfn's corresponding 
+	// dirty_bitmap bit in slot.
 	if (is_writable_pte(new_spte) && !is_writable_pte(old_spte)) {
 		/*
 		 * The gfn of direct spte is stable since it is
@@ -3503,6 +3541,8 @@ static bool fast_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
 	do {
 		u64 new_spte;
 
+		// check for present of every level spte, if not present, we need to fix
+		// the spte.
 		for_each_shadow_entry_lockless(vcpu, cr2_or_gpa, iterator, spte)
 			if (!is_shadow_present_pte(spte))
 				break;
@@ -4092,9 +4132,11 @@ static int direct_page_fault(struct kvm_vcpu *vcpu, gpa_t gpa, u32 error_code,
 	kvm_pfn_t pfn;
 	int r;
 
+	// if page is in tracking pool, we need do other process.
 	if (page_fault_handle_page_track(vcpu, error_code, gfn))
 		return RET_PF_EMULATE;
 
+	// if can, do some quick fix for spte.
 	if (fast_page_fault(vcpu, gpa, error_code))
 		return RET_PF_RETRY;
 
@@ -4178,10 +4220,12 @@ int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, gpa_t gpa, u32 error_code,
 {
 	int max_level;
 
+	/* get the max Hpage level we can use in page_fault. */
 	for (max_level = KVM_MAX_HUGEPAGE_LEVEL;
 	     max_level > PG_LEVEL_4K;
 	     max_level--) {
 		int page_num = KVM_PAGES_PER_HPAGE(max_level);
+		// get the HUGE page base address to check its attr in MTRR.
 		gfn_t base = (gpa >> PAGE_SHIFT) & ~(page_num - 1);
 
 		if (kvm_mtrr_check_gfn_range_consistency(vcpu, base, page_num))
@@ -4887,28 +4931,30 @@ static void init_kvm_tdp_mmu(struct kvm_vcpu *vcpu)
 	context->sync_page = nonpaging_sync_page;
 	context->invlpg = NULL;
 	context->update_pte = nonpaging_update_pte;
+	// 4 or 5, generally 4.
 	context->shadow_root_level = kvm_mmu_get_tdp_level(vcpu);
 	context->direct_map = true;
 	context->get_guest_pgd = get_cr3;
 	context->get_pdptr = kvm_pdptr_read;
 	context->inject_page_fault = kvm_inject_page_fault;
 
-	if (!is_paging(vcpu)) {
+	if (!is_paging(vcpu)) { // real mode
 		context->nx = false;
 		context->gva_to_gpa = nonpaging_gva_to_gpa;
 		context->root_level = 0;
-	} else if (is_long_mode(vcpu)) {
+	} else if (is_long_mode(vcpu)) { // 64bit mode
 		context->nx = is_nx(vcpu);
 		context->root_level = is_la57_mode(vcpu) ?
 				PT64_ROOT_5LEVEL : PT64_ROOT_4LEVEL;
+		// different paging mode/CPU has different reserved bits.
 		reset_rsvds_bits_mask(vcpu, context);
 		context->gva_to_gpa = paging64_gva_to_gpa;
-	} else if (is_pae(vcpu)) {
+	} else if (is_pae(vcpu)) { // pae mode.
 		context->nx = is_nx(vcpu);
 		context->root_level = PT32E_ROOT_LEVEL;
 		reset_rsvds_bits_mask(vcpu, context);
 		context->gva_to_gpa = paging64_gva_to_gpa;
-	} else {
+	} else { // 32-bit paging mode.
 		context->nx = false;
 		context->root_level = PT32_ROOT_LEVEL;
 		reset_rsvds_bits_mask(vcpu, context);
@@ -5444,7 +5490,7 @@ int kvm_mmu_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa, u64 error_code,
 		return RET_PF_RETRY;
 
 	r = RET_PF_INVALID;
-	if (unlikely(error_code & PFERR_RSVD_MASK)) {
+	if (unlikely(error_code & PFERR_RSVD_MASK)) { // mmio
 		r = handle_mmio_page_fault(vcpu, cr2_or_gpa, direct);
 		if (r == RET_PF_EMULATE)
 			goto emulate;
