@@ -3515,7 +3515,10 @@ static bool is_access_allowed(u32 fault_err_code, u64 spte)
 	if (fault_err_code & PFERR_WRITE_MASK)
 		return is_writable_pte(spte);
 
-	/* Fault was on Read access */
+	/* Fault was on Read access. 
+	 * Ewan: here we actually check Read_Access bit in spte, 
+	 * not the present bit in spte.
+	 */
 	return spte & PT_PRESENT_MASK;
 }
 
@@ -3537,7 +3540,8 @@ static bool fast_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
 		return false;
 
 	walk_shadow_page_lockless_begin(vcpu);
-
+	
+	// if we cannot handle #PF fast, we can try 4 times at most.
 	do {
 		u64 new_spte;
 
@@ -3548,6 +3552,8 @@ static bool fast_page_fault(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
 				break;
 
 		sp = sptep_to_sp(iterator.sptep);
+
+		// middle non-present spte, fix it in slow path.
 		if (!is_last_spte(spte, sp->role.level))
 			break;
 
