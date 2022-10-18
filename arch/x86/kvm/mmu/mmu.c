@@ -415,6 +415,7 @@ static inline u64 spte_shadow_dirty_mask(u64 spte)
 	return spte_ad_enabled(spte) ? shadow_dirty_mask : 0;
 }
 
+/* an access pte is a access_trace_pte whose lower 3 bits(RWX) is zero. */
 static inline bool is_access_track_spte(u64 spte)
 {
 	return !spte_ad_enabled(spte) && (spte & shadow_acc_track_mask) == 0;
@@ -816,6 +817,9 @@ retry:
 }
 #endif
 
+/* if return true, means this spte is a kvm write-protected page for software accessed
+ * and dirty flag management.
+ */
 static bool spte_can_locklessly_be_made_writable(u64 spte)
 {
 	return (spte & (SPTE_HOST_WRITEABLE | SPTE_MMU_WRITEABLE)) ==
@@ -837,6 +841,9 @@ static bool spte_has_volatile_bits(u64 spte)
 	    is_access_track_spte(spte))
 		return true;
 
+	/* concern about cases where spte do has A/D bits, but the bits are 0
+	 * in the current time.
+	 */
 	if (spte_ad_enabled(spte)) {
 		if ((spte & shadow_accessed_mask) == 0 ||
 	    	    (is_writable_pte(spte) && (spte & shadow_dirty_mask) == 0))
@@ -846,6 +853,12 @@ static bool spte_has_volatile_bits(u64 spte)
 	return false;
 }
 
+/* Logic: if we don't use access-track, we can see EPT accessed 
+ * bit to determine whether spte is accessed. If we use access-track,
+ * all the spte are initially marked as access-track type(clear RWX), 
+ * when guest accessed these spte, we restore the spte's RWX bit, which
+ * means accessed.
+ */
 static bool is_accessed_spte(u64 spte)
 {
 	u64 accessed_mask = spte_shadow_accessed_mask(spte);
@@ -874,7 +887,7 @@ static void mmu_spte_set(u64 *sptep, u64 new_spte)
 }
 
 /*
- * Update the SPTE (excluding the PFN), but do not track changes in its
+ * Update the SPTE (excluding the PFN) as new_spte, but do not track changes in its
  * accessed/dirty status.
  */
 static u64 mmu_spte_update_no_track(u64 *sptep, u64 new_spte)
@@ -1009,11 +1022,18 @@ static u64 mmu_spte_get_lockless(u64 *sptep)
 	return __get_spte_lockless(sptep);
 }
 
+/* mark spte as access track spte by following step:
+ * 1. mark spte's bit54, 56 as 1.
+ * 2. clear spte's RWX bits.
+ */
 static u64 mark_spte_for_access_track(u64 spte)
 {
+	// if ad enabled, we shouldn't do mark for access track, the access track
+	// will be done by hardware, we just clear accessed bit in spte.
 	if (spte_ad_enabled(spte))
 		return spte & ~shadow_accessed_mask;
 
+	// already marked.
 	if (is_access_track_spte(spte))
 		return spte;
 
@@ -1037,7 +1057,12 @@ static u64 mark_spte_for_access_track(u64 spte)
 	return spte;
 }
 
-/* Restore an acc-track PTE back to a regular PTE */
+/* Restore an acc-track PTE back to a regular PTE 
+ * Ewan: an acc-track PTE is a PTE whose RWX bits is zero,
+ * and bit 54, 56 is 1.if we want to restore an acc-track 
+ * PTE to a normal PTE, just set R,X bit as 1, and bit 54,
+ * 56 as 0.
+ */
 static u64 restore_acc_track_spte(u64 spte)
 {
 	u64 new_spte = spte;
@@ -1055,7 +1080,9 @@ static u64 restore_acc_track_spte(u64 spte)
 	return new_spte;
 }
 
-/* Returns the Accessed status of the PTE and resets it at the same time. */
+/* Returns the Accessed status of the PTE and resets it at the same time. 
+ * OR we can say, this function name should be mmu_spte_clear_accessed_bit.
+ */
 static bool mmu_spte_age(u64 *sptep)
 {
 	u64 spte = mmu_spte_get_lockless(sptep);
@@ -1063,6 +1090,7 @@ static bool mmu_spte_age(u64 *sptep)
 	if (!is_accessed_spte(spte))
 		return false;
 
+	// clear accessd bit of spte.
 	if (spte_ad_enabled(spte)) {
 		clear_bit((ffs(shadow_accessed_mask) - 1),
 			  (unsigned long *)sptep);
@@ -1072,6 +1100,9 @@ static bool mmu_spte_age(u64 *sptep)
 		 * lost when the SPTE is marked for access tracking.
 		 */
 		if (is_writable_pte(spte))
+			/* set the page that host mmu manages as dirty, so host mmu will maintain
+			 * its dirty state.
+			 */
 			kvm_set_pfn_dirty(spte_to_pfn(spte));
 
 		spte = mark_spte_for_access_track(spte);
@@ -1823,6 +1854,7 @@ restart:
 
 		need_flush = 1;
 
+		// Ewan: why do this?
 		if (pte_write(*ptep)) {
 			pte_list_remove(rmap_head, sptep);
 			goto restart;
@@ -1985,6 +2017,9 @@ int kvm_set_spte_hva(struct kvm *kvm, unsigned long hva, pte_t pte)
 	return kvm_handle_hva(kvm, hva, (unsigned long)&pte, kvm_set_pte_rmapp);
 }
 
+/* query sptes(with same gfn) pointed by rmapp's accessed bit, if one
+ * spte's accessed bit is 1, return 1.
+ */
 static int kvm_age_rmapp(struct kvm *kvm, struct kvm_rmap_head *rmap_head,
 			 struct kvm_memory_slot *slot, gfn_t gfn, int level,
 			 unsigned long data)
@@ -1994,6 +2029,7 @@ static int kvm_age_rmapp(struct kvm *kvm, struct kvm_rmap_head *rmap_head,
 	int young = 0;
 
 	for_each_rmap_spte(rmap_head, &iter, sptep)
+		// query accessed bit and if set, clear it.
 		young |= mmu_spte_age(sptep);
 
 	trace_kvm_age_page(gfn, level, slot, young);
