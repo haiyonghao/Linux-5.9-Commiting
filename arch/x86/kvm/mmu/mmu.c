@@ -459,6 +459,7 @@ static u64 generation_mmio_spte_mask(u64 gen)
 	return mask;
 }
 
+/* In this kernel version, generation of spte consists of bits (62,54) | (11,3)*/
 static u64 get_mmio_spte_generation(u64 spte)
 {
 	u64 gen;
@@ -475,15 +476,16 @@ static u64 make_mmio_spte(struct kvm_vcpu *vcpu, u64 gfn, unsigned int access)
 	u64 mask = generation_mmio_spte_mask(gen);
 	u64 gpa = gfn << PAGE_SHIFT;
 
-	access &= shadow_mmio_access_mask;
-	mask |= shadow_mmio_value | access;
-	mask |= gpa | shadow_nonpresent_or_rsvd_mask;
-	mask |= (gpa & shadow_nonpresent_or_rsvd_mask)
+	access &= shadow_mmio_access_mask; // access = 0.
+	mask |= shadow_mmio_value | access; // mask = (3 << 52) | 0b110
+	mask |= gpa | shadow_nonpresent_or_rsvd_mask; // latter mask==0.
+	mask |= (gpa & shadow_nonpresent_or_rsvd_mask) // aka NOP.
 		<< shadow_nonpresent_or_rsvd_mask_len;
 
 	return mask;
 }
 
+// mark spte as (3 << 52) | 0b110.
 static void mark_mmio_spte(struct kvm_vcpu *vcpu, u64 *sptep, u64 gfn,
 			   unsigned int access)
 {
@@ -500,6 +502,7 @@ static gfn_t get_mmio_spte_gfn(u64 spte)
 {
 	u64 gpa = spte & shadow_nonpresent_or_rsvd_lower_gfn_mask;
 
+	// on cpu not affected by L1TF bug, next line code do nothing.
 	gpa |= (spte >> shadow_nonpresent_or_rsvd_mask_len)
 	       & shadow_nonpresent_or_rsvd_mask;
 
@@ -522,6 +525,7 @@ static bool set_mmio_spte(struct kvm_vcpu *vcpu, u64 *sptep, gfn_t gfn,
 	return false;
 }
 
+/* if generation of spte equals to vcpu's slots generation, return true.*/
 static bool check_mmio_spte(struct kvm_vcpu *vcpu, u64 spte)
 {
 	u64 kvm_gen, spte_gen, gen;
@@ -2168,6 +2172,7 @@ static void kvm_mmu_mark_parents_unsync(struct kvm_mmu_page *sp)
 	u64 *sptep;
 	struct rmap_iterator iter;
 
+	/* for each spte in sp->parent_ptes, which is a rmap for each sp.*/
 	for_each_rmap_spte(&sp->parent_ptes, &iter, sptep) {
 		mark_unsync(sptep);
 	}
@@ -3015,6 +3020,14 @@ static bool mmu_need_write_protect(struct kvm_vcpu *vcpu, gfn_t gfn,
 	if (kvm_page_track_is_active(vcpu, gfn, KVM_PAGE_TRACK_WRITE))
 		return true;
 
+	/* for each indirect or valid shadow page in 
+	 * kvm->arch.mmu_page_hash[kvm_page_table_hashfn(_gfn)],
+	 * which is a hash table cached all mmu page(shadow page).
+	 * for each indirect or valid shadow page, check sp.unsync,
+	 * if true continue, or mark sp.unsync=1, and mark sp's 
+	 * parents spte's sp(laid on)'s unsync_child_bitmap as 1
+	 * in the corresponding bit, and it's a recursion process.
+	 */
 	for_each_gfn_indirect_valid_sp(vcpu->kvm, sp, gfn) {
 		if (!can_unsync)
 			return true;
@@ -3163,6 +3176,10 @@ static int set_spte(struct kvm_vcpu *vcpu, u64 *sptep,
 		if (!can_unsync && is_writable_pte(*sptep))
 			goto set_pte;
 
+		/* 2 cases we need write-protect.
+		 * 1. gfn_track enabled on this gfn.
+		 * 2. can not being unsync status between spte and gpte.
+		 */
 		if (mmu_need_write_protect(vcpu, gfn, can_unsync)) {
 			pgprintk("%s: found shadow page for %llx, marking ro\n",
 				 __func__, gfn);
@@ -4107,6 +4124,7 @@ walk_shadow_page_get_mmio_spte(struct kvm_vcpu *vcpu, u64 addr, u64 *sptep)
 	int root, leaf;
 	bool reserved = false;
 
+	// for non-nested enviroment, rsvd_check is NULL.
 	rsvd_check = &vcpu->arch.mmu->shadow_zero_check;
 
 	walk_shadow_page_lockless_begin(vcpu);
@@ -4155,7 +4173,7 @@ static int handle_mmio_page_fault(struct kvm_vcpu *vcpu, u64 addr, bool direct)
 
 	if (mmio_info_in_cache(vcpu, addr, direct))
 		return RET_PF_EMULATE;
-
+	// check for invalid bit set condition on a series of spte indicated by addr(GPA).
 	reserved = walk_shadow_page_get_mmio_spte(vcpu, addr, &spte);
 	if (WARN_ON(reserved))
 		return -EINVAL;
@@ -4246,10 +4264,11 @@ static bool try_async_pf(struct kvm_vcpu *vcpu, bool prefault, gfn_t gfn,
 
 	async = false;
 	*pfn = __gfn_to_pfn_memslot(slot, gfn, false, &async, write, writable);
+	// when gfn is a mmio gfn, async will be 0.
 	if (!async)
 		return false; /* *pfn has correct page already */
 
-	if (!prefault && kvm_can_do_async_pf(vcpu)) {
+	if (!prefault && kvm_can_do_async_pf(vcpu)) { // L1 doing #PF path.
 		trace_kvm_try_async_get_page(cr2_or_gpa, gfn);
 		if (kvm_find_async_pf_gfn(vcpu, gfn)) {
 			trace_kvm_async_pf_doublefault(cr2_or_gpa, gfn);
@@ -4659,29 +4678,49 @@ __reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
 {
 	u64 bad_mt_xwr;
 
+	/* for PML4E, (maxphysaddr, 51), (3, 7) is reserved. */
 	rsvd_check->rsvd_bits_mask[0][4] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(3, 7);
+	// for PDPTE that references an EPT page directory.
 	rsvd_check->rsvd_bits_mask[0][3] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(3, 7);
+
+	// for PDE that references an EPT Page Table.
 	rsvd_check->rsvd_bits_mask[0][2] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(3, 6);
+
+	// for PTE1 that references an EPT PTE2, this situation is
+	// in 5-level paging in EPT.
 	rsvd_check->rsvd_bits_mask[0][1] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(3, 6);
+
+	// for PTE references 4k page.
 	rsvd_check->rsvd_bits_mask[0][0] = rsvd_bits(maxphyaddr, 51);
 
 	/* large page */
 	rsvd_check->rsvd_bits_mask[1][4] = rsvd_check->rsvd_bits_mask[0][4];
 	rsvd_check->rsvd_bits_mask[1][3] = rsvd_check->rsvd_bits_mask[0][3];
+
+	// for PDPTE references 1G page.
 	rsvd_check->rsvd_bits_mask[1][2] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(12, 29);
+
+	// for PDE references 2M page.
 	rsvd_check->rsvd_bits_mask[1][1] =
 		rsvd_bits(maxphyaddr, 51) | rsvd_bits(12, 20);
+
+	// for PTE refences 4k page.
 	rsvd_check->rsvd_bits_mask[1][0] = rsvd_check->rsvd_bits_mask[0][0];
 
+	// bad_mt_xwr = 0x00FF_0000
 	bad_mt_xwr = 0xFFull << (2 * 8);	/* bits 3..5 must not be 2 */
+	// bad_mt_xwr = 0xFFFF_0000
 	bad_mt_xwr |= 0xFFull << (3 * 8);	/* bits 3..5 must not be 3 */
+	// bad_mt_xwr = 0xFF00_0000_FFFF_0000
 	bad_mt_xwr |= 0xFFull << (7 * 8);	/* bits 3..5 must not be 7 */
+	// bad_mt_xwr = 0xFF04_0404_FFFF_0404
 	bad_mt_xwr |= REPEAT_BYTE(1ull << 2);	/* bits 0..2 must not be 010 */
+	// bad_mt_xwr = 0xFF44_4444_FFFF_4444
 	bad_mt_xwr |= REPEAT_BYTE(1ull << 6);	/* bits 0..2 must not be 110 */
 	if (!execonly) {
 		/* bits 0..2 must not be 100 unless VMX capabilities allow it */

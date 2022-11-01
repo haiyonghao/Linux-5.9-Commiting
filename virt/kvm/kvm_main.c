@@ -1754,6 +1754,7 @@ static bool memslot_is_readonly(struct kvm_memory_slot *slot)
 static unsigned long __gfn_to_hva_many(struct kvm_memory_slot *slot, gfn_t gfn,
 				       gfn_t *nr_pages, bool write)
 {
+	/* if gfn is a mmio-gfn, slot will be NULL */
 	if (!slot || slot->flags & KVM_MEMSLOT_INVALID)
 		return KVM_HVA_ERR_BAD;
 
@@ -1984,6 +1985,7 @@ static kvm_pfn_t hva_to_pfn(unsigned long addr, bool atomic, bool *async,
 	/* we can do it either atomically or asynchronously, not both */
 	BUG_ON(atomic && async);
 
+	// in the non-mmio-ept-violation code path, the writable must be true.
 	if (hva_to_pfn_fast(addr, write_fault, writable, &pfn))
 		return pfn;
 
@@ -2036,7 +2038,7 @@ kvm_pfn_t __gfn_to_pfn_memslot(struct kvm_memory_slot *slot, gfn_t gfn,
 	}
 
 	// a valid hva should less than 0xffff880000000000
-	if (kvm_is_error_hva(addr)) {
+	if (kvm_is_error_hva(addr)) { // mmio gfn has KVM_HVA_ERR_BAD hva.
 		if (writable)
 			*writable = false;
 		return KVM_PFN_NOSLOT;

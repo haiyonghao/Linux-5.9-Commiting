@@ -54,7 +54,7 @@ static inline void kvm_clear_exception_queue(struct kvm_vcpu *vcpu)
 }
 
 /* 将一个中断入队，操作目标为vcpu->arch.interrupt，操作逻辑：
-  * 1. 将该中断标记为已注入的中断
+  *  1. 将该中断标记为已注入的中断
   *  2. 将该中断标记为硬件中断或软件中断(soft=true/false)
   *  3. 将中断号码标记为本次中断的vector
   */
@@ -171,6 +171,7 @@ static inline bool is_noncanonical_address(u64 la, struct kvm_vcpu *vcpu)
 	return get_canonical(la, vcpu_virt_addr_bits(vcpu)) != la;
 }
 
+/* store(cache) mmio infomation in vcpu->arch.mmio_xxx. */
 static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
 					gva_t gva, gfn_t gfn, unsigned access)
 {
@@ -182,11 +183,12 @@ static inline void vcpu_cache_mmio_info(struct kvm_vcpu *vcpu,
 	/*
 	 * If this is a shadow nested page table, the "GVA" is
 	 * actually a nGPA.
+	 * For direct mmu, gva passed in is 0, access for EPT is 0.
 	 */
 	vcpu->arch.mmio_gva = mmu_is_nested(vcpu) ? 0 : gva & PAGE_MASK;
 	vcpu->arch.mmio_access = access;
 	vcpu->arch.mmio_gfn = gfn;
-	vcpu->arch.mmio_gen = gen;
+	vcpu->arch.mmio_gen = gen; // (62, 54) | (11, 3)
 }
 
 static inline bool vcpu_match_mmio_gen(struct kvm_vcpu *vcpu)
@@ -217,6 +219,12 @@ static inline bool vcpu_match_mmio_gva(struct kvm_vcpu *vcpu, unsigned long gva)
 	return false;
 }
 
+/* a mmio access matches cached mmio access in vcpu->arch when:
+ * 1. gpa >> PAGE_SHIFT == vcpu->arch.mmio_gfn.
+ * 2. current global memslots->generation == vcpu->arch.mmio_gen.
+ * when 1 and 2 meets, we think this mmio access has already been cached,
+ * we just need to do instruction emulation next.
+ */
 static inline bool vcpu_match_mmio_gpa(struct kvm_vcpu *vcpu, gpa_t gpa)
 {
 	if (vcpu_match_mmio_gen(vcpu) && vcpu->arch.mmio_gfn &&

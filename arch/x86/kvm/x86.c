@@ -5509,6 +5509,11 @@ static int vcpu_mmio_read(struct kvm_vcpu *vcpu, gpa_t addr, int len, void *v)
 	int handled = 0;
 	int n;
 
+	/*Logic: 
+	 	1. we can emulate local apic regs mmio access locally when apic emulated in kernel.
+	 	2. if it isn't access to local apic, maybe it is an acess to KVM_MMIO_BUS devices,
+	 	like PIC. In this case, we also can emulate locally(in kvm otherthan qemu).
+	*/
 	do {
 		n = min(len, 8);
 		if (!(lapic_in_kernel(vcpu) &&
@@ -5613,7 +5618,13 @@ out:
 	return r;
 }
 
-/* used for instruction fetching */
+/* used for instruction fetching.
+ * 1. get the gpa by the page walker with gva.
+ * 2. calculate gva offset in guest page.
+ * 3. read the instruction from guest memory with the virtual address
+      (gfn=>hva, hva + offset = real hva), copy_from_user(hva) can
+      get the instrution.
+ */
 static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
 				gva_t addr, void *val, unsigned int bytes,
 				struct x86_exception *exception)
@@ -5625,7 +5636,7 @@ static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
 
 	/* Inline kvm_read_guest_virt_helper for speed.  */
 	gpa_t gpa = vcpu->arch.walk_mmu->gva_to_gpa(vcpu, addr, access|PFERR_FETCH_MASK,
-						    exception);
+						    exception); // FNAME(gva_to_gpa)
 	if (unlikely(gpa == UNMAPPED_GVA))
 		return X86EMUL_PROPAGATE_FAULT;
 
@@ -5912,13 +5923,14 @@ static int emulator_read_write_onepage(unsigned long addr, void *val,
 			return X86EMUL_PROPAGATE_FAULT;
 	}
 
-	if (!ret && ops->read_write_emulate(vcpu, gpa, val, bytes))
+	// non-mmio memory access, just emulate read/write.
+	if (!ret && ops->read_write_emulate(vcpu, gpa, val, bytes)) // read_emulate write_emulate
 		return X86EMUL_CONTINUE;
 
 	/*
 	 * Is this MMIO handled locally?
 	 */
-	handled = ops->read_write_mmio(vcpu, gpa, bytes, val);
+	handled = ops->read_write_mmio(vcpu, gpa, bytes, val); // vcpu_mmio_read write_mmio
 	if (handled == bytes)
 		return X86EMUL_CONTINUE;
 
@@ -5985,7 +5997,7 @@ static int emulator_read_write(struct x86_emulate_ctxt *ctxt,
 	vcpu->run->exit_reason = KVM_EXIT_MMIO;
 	vcpu->run->mmio.phys_addr = gpa;
 
-	return ops->read_write_exit_mmio(vcpu, gpa, val, bytes);
+	return ops->read_write_exit_mmio(vcpu, gpa, val, bytes); // read_exit_mmio write_exit_mmio
 }
 
 static int emulator_read_emulated(struct x86_emulate_ctxt *ctxt,
@@ -6856,7 +6868,7 @@ int kvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	unsigned long rflags = kvm_x86_ops.get_rflags(vcpu);
 	int r;
 
-	r = kvm_x86_ops.skip_emulated_instruction(vcpu);
+	r = kvm_x86_ops.skip_emulated_instruction(vcpu); // vmx_skip_emulated_instruction
 	if (unlikely(!r))
 		return 0;
 
@@ -6948,6 +6960,8 @@ int x86_emulate_instruction(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
 	int r;
 	struct x86_emulate_ctxt *ctxt = vcpu->arch.emulate_ctxt;
 	bool writeback = true;
+	// indicate whether the instruction we need to emulate is a write #PF to 
+	// shadow page table.
 	bool write_fault_to_spt = vcpu->arch.write_fault_to_shadow_pgtable;
 
 	vcpu->arch.l1tf_flush_l1d = true;
@@ -6979,6 +6993,7 @@ int x86_emulate_instruction(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa,
 
 		ctxt->ud = emulation_type & EMULTYPE_TRAP_UD;
 
+		// store instruction infomation into ctxt, like prefix, opcode ...
 		r = x86_decode_insn(ctxt, insn, insn_len);
 
 		trace_kvm_emulate_insn_start(vcpu);
@@ -8858,6 +8873,7 @@ static int complete_emulated_mmio(struct kvm_vcpu *vcpu)
 	/* Complete previous fragment */
 	frag = &vcpu->mmio_fragments[vcpu->mmio_cur_fragment];
 	len = min(8u, frag->len);
+	/* store mmio read data from qemu just now into frag.*/
 	if (!vcpu->mmio_is_write)
 		memcpy(frag->data, run->mmio.data, len);
 
@@ -8872,7 +8888,7 @@ static int complete_emulated_mmio(struct kvm_vcpu *vcpu)
 		frag->len -= len;
 	}
 
-	if (vcpu->mmio_cur_fragment >= vcpu->mmio_nr_fragments) {
+	if (vcpu->mmio_cur_fragment >= vcpu->mmio_nr_fragments) { // completed mmio.
 		vcpu->mmio_needed = 0;
 
 		/* FIXME: return into emulator if single-stepping.  */

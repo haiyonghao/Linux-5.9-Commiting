@@ -594,6 +594,7 @@ static u32 desc_limit_scaled(struct desc_struct *desc)
 
 static unsigned long seg_base(struct x86_emulate_ctxt *ctxt, int seg)
 {
+	// in 64-bit protect mode, segment register blow FS all set as 0.
 	if (ctxt->mode == X86EMUL_MODE_PROT64 && seg < VCPU_SREG_FS)
 		return 0;
 
@@ -704,6 +705,9 @@ static unsigned insn_alignment(struct x86_emulate_ctxt *ctxt, unsigned size)
 	}
 }
 
+/* refering to vcpu paging mode, get the max_size of a instruction may be, and also
+ * get the virtual address(gva) of the instruction.
+ */
 static __always_inline int __linearize(struct x86_emulate_ctxt *ctxt,
 				       struct segmented_address addr,
 				       unsigned *max_size, unsigned size,
@@ -916,7 +920,7 @@ static int __do_insn_fetch_bytes(struct x86_emulate_ctxt *ctxt, int op_size)
 		return emulate_gp(ctxt, 0);
 
 	rc = ctxt->ops->fetch(ctxt, linear, ctxt->fetch.end,
-			      size, &ctxt->exception);
+			      size, &ctxt->exception); // kvm_fetch_guest_virt
 	if (unlikely(rc != X86EMUL_CONTINUE))
 		return rc;
 	ctxt->fetch.end += size;
@@ -1392,7 +1396,7 @@ static int decode_modrm(struct x86_emulate_ctxt *ctxt,
 			break;
 		}
 	}
-	op->addr.mem.ea = modrm_ea;
+	op->addr.mem.ea = modrm_ea; // gva of memory oprand.
 	if (ctxt->ad_bytes != 8)
 		ctxt->memop.addr.mem.ea = (u32)ctxt->memop.addr.mem.ea;
 
@@ -1455,7 +1459,7 @@ static int read_emulated(struct x86_emulate_ctxt *ctxt,
 	WARN_ON((mc->end + size) >= sizeof(mc->data));
 
 	rc = ctxt->ops->read_emulated(ctxt, addr, mc->data + mc->end, size,
-				      &ctxt->exception);
+				      &ctxt->exception); // emulator_read_emulated
 	if (rc != X86EMUL_CONTINUE)
 		return rc;
 
@@ -5181,6 +5185,8 @@ int x86_decode_insn(struct x86_emulate_ctxt *ctxt, void *insn, int insn_len)
 	ctxt->fetch.end = ctxt->fetch.data + insn_len;
 	ctxt->opcode_len = 1;
 	ctxt->intercept = x86_intercept_none;
+
+	// for indicated intruction length, we just copy instruction into ctxt. 
 	if (insn_len > 0)
 		memcpy(ctxt->fetch.data, insn, insn_len);
 	else {
@@ -5415,6 +5421,7 @@ done_prefixes:
 
 	/* ModRM and SIB bytes. */
 	if (ctxt->d & ModRM) {
+		// get gva of operand.
 		rc = decode_modrm(ctxt, &ctxt->memop);
 		if (!has_seg_override) {
 			has_seg_override = true;

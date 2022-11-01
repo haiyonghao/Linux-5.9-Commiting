@@ -250,8 +250,8 @@ struct operand {
 	union {
 		unsigned long *reg;
 		struct segmented_address {
-			ulong ea;
-			unsigned seg;
+			ulong ea; // offset in segment.
+			unsigned seg; // segment index, like CS, SS ...
 		} mem;
 		unsigned xmm;
 		unsigned mm;

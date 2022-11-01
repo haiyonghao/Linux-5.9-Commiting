@@ -374,6 +374,7 @@ retry_walk:
 		walker->table_gfn[walker->level - 1] = table_gfn;
 		walker->pte_gpa[walker->level - 1] = pte_gpa;
 
+		// for non-nested mmu, just return gpa.
 		real_gpa = mmu->translate_gpa(vcpu, gfn_to_gpa(table_gfn),
 					      nested_access,
 					      &walker->fault);

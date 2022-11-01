@@ -374,6 +374,7 @@ struct kvm_mmu {
 	u8 root_level;
 	u8 shadow_root_level;
 	u8 ept_ad;
+	/* if without EPT/NPT, direct_map == false, else true. */
 	bool direct_map;
 	struct kvm_mmu_root_info prev_roots[KVM_MMU_NUM_PREV_ROOTS];
 
