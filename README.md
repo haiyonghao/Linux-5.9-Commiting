@@ -12,4 +12,3 @@ Any new commit should modified in **dev branch**.
 注释均为中文.
 oh no， 我发现注释中文容易遇到乱码，因此以后的注释均为英文。
 
-任何注释贡献请先修改到**dev分支**. 
